@@ -39,6 +39,8 @@ This repository documents that build from day one — architecture decisions, we
 
 This project is being built incrementally over the semester. Status is updated weekly.
 
+- [x] **Routing** — home (`/`), alumni directory (`/alumni`), alumni profile via URL parameter (`/alumni/[id]`), about page (`/about`), JSON API (`/api/alumni`); Istanbul University theme; Docker setup (mock data in `lib/data.ts` for now)
+
 ---
 
 ## 📂 Project Structure
