@@ -1,33 +1,14 @@
-import { NextResponse } from "next/server";
-import { getNextId, readFormFields, users, type User } from "@/lib/users";
+import * as ApiUserController from "@/lib/controllers/ApiUserController";
 
-// GET  "/api/users" → returns all users added so far as a JSON array ([] if none yet)
-// POST "/api/users" → creates a user from ALL form-data fields and returns it as JSON (201 Created)
-// The users array lives in lib/users.ts so /api/users/[id] can read and update it too.
+// GET  "/api/users" → list all users (JSON)
+// POST "/api/users" → create a user from form-data (JSON, 201)
+// Route → Controller → Model: this file only maps HTTP methods to ApiUserController,
+// which validates the request, calls the User Model and builds the JSON response.
 
 export function GET() {
-  return NextResponse.json(users);
+  return ApiUserController.getAll();
 }
 
-export async function POST(request: Request) {
-  const fields = await readFormFields(request);
-  if (fields === null) {
-    return NextResponse.json(
-      { error: "Request body must be form-data" },
-      { status: 400 },
-    );
-  }
-
-  const { name } = fields;
-  if (name === undefined || name.trim() === "") {
-    return NextResponse.json(
-      { error: '"name" is required and must be a non-empty string' },
-      { status: 400 },
-    );
-  }
-
-  const user: User = { id: getNextId(), ...fields, name };
-  users.push(user);
-
-  return NextResponse.json(user, { status: 201 });
+export function POST(request: Request) {
+  return ApiUserController.create(request);
 }
