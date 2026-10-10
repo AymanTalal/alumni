@@ -55,7 +55,7 @@ alumni/
 │   ├── layout.tsx                    # Root layout shared by all pages
 │   ├── globals.css                   # Global styles (Tailwind CSS)
 │   ├── favicon.ico                   # Browser tab icon
-│   ├── page.tsx                      # /                   temporary homepage
+│   ├── page.tsx                      # /                   temporary homepage with links to Users and Announcements
 │   ├── about/page.tsx                # /about              temporary about page
 │   ├── users/
 │   │   ├── page.tsx                  # GET /users          user list + "Add a user" form  → UserController
@@ -65,6 +65,14 @@ alumni/
 │   │       ├── not-found.tsx         #                     "User not found" page (404)
 │   │       └── edit/
 │   │           └── page.tsx          # GET /users/{id}/edit  edit form (HTML)             → UserController
+│   ├── announcements/
+│   │   ├── page.tsx                  # GET /announcements  list + "Add an announcement" form → AnnouncementController
+│   │   ├── actions.ts                # Server Actions      create, update, delete         → AnnouncementController
+│   │   └── [id]/
+│   │       ├── page.tsx              # GET /announcements/{id}  one announcement (HTML)   → AnnouncementController
+│   │       ├── not-found.tsx         #                     "Announcement not found" page (404)
+│   │       └── edit/
+│   │           └── page.tsx          # GET /announcements/{id}/edit  edit form (HTML)     → AnnouncementController
 │   ├── hello/
 │   │   ├── route.ts                  # /hello              "Hello, World!"
 │   │   └── [name]/route.ts           # /hello/{name}       "Hello, {name}!"
@@ -74,22 +82,34 @@ alumni/
 │       ├── health/route.ts           # /api/health         health check
 │       ├── users/route.ts            # /api/users          list & create users (JSON)     → ApiUserController
 │       ├── users/[id]/route.ts       # /api/users/{id}     get, replace, update, delete   → ApiUserController
+│       ├── announcements/route.ts    # /api/announcements  list & create (JSON)           → ApiAnnouncementController
+│       ├── announcements/[id]/route.ts  # /api/announcements/{id}  get, replace, update, delete → ApiAnnouncementController
 │       └── swagger/
 │           ├── page.tsx              # /api/swagger        interactive API docs
 │           └── SwaggerView.tsx       # Client component that renders Swagger UI
 ├── lib/
 │   ├── controllers/
 │   │   ├── ApiUserController.ts      # User CRUD for the JSON API: Request in, NextResponse.json out
-│   │   └── UserController.ts         # User CRUD for pages: plain arguments in, { user } / { error } out
+│   │   ├── UserController.ts         # User CRUD for pages: plain arguments in, { user } / { error } out
+│   │   ├── ApiAnnouncementController.ts  # Announcement CRUD for the JSON API: Request in, NextResponse.json out
+│   │   └── AnnouncementController.ts # Announcement CRUD for pages: plain arguments in, { announcement } / { error } out
 │   ├── models/
-│   │   └── user.ts                   # User Model: the only in-memory user store + CRUD functions
+│   │   ├── user.ts                   # User Model: the only in-memory user store + CRUD functions
+│   │   └── announcement.ts           # Announcement Model: the only in-memory announcement store + CRUD functions
 │   ├── views/
-│   │   └── users/
-│   │       ├── UserListView.tsx      # Table of users with View / Edit / Delete (markup only)
-│   │       ├── UserDetailView.tsx    # One user's fields + Edit / Delete (markup only)
-│   │       ├── UserCreateForm.tsx    # "Add a user" form: name*, email, age (markup only)
-│   │       ├── UserEditForm.tsx      # "Edit user" form, pre-filled (markup only)
-│   │       └── DeleteUserButton.tsx  # Delete button that asks for confirmation (markup only)
+│   │   ├── users/
+│   │   │   ├── UserListView.tsx      # Table of users with View / Edit / Delete (markup only)
+│   │   │   ├── UserDetailView.tsx    # One user's fields + Edit / Delete (markup only)
+│   │   │   ├── UserCreateForm.tsx    # "Add a user" form: name*, email, age (markup only)
+│   │   │   ├── UserEditForm.tsx      # "Edit user" form, pre-filled (markup only)
+│   │   │   └── DeleteUserButton.tsx  # Delete button that asks for confirmation (markup only)
+│   │   └── announcements/
+│   │       ├── AnnouncementListView.tsx      # Table: title, author, date + View / Edit / Delete (markup only)
+│   │       ├── AnnouncementDetailView.tsx    # Full announcement + Edit / Delete (markup only)
+│   │       ├── AnnouncementCreateForm.tsx    # "Add an announcement" form: title*, content*, author (markup only)
+│   │       ├── AnnouncementEditForm.tsx      # "Edit announcement" form, pre-filled (markup only)
+│   │       ├── DeleteAnnouncementButton.tsx  # Delete button that asks for confirmation (markup only)
+│   │       └── formatDate.ts                 # Formats the ISO dates for display
 │   └── openapi.ts                    # OpenAPI spec rendered at /api/swagger
 ├── AGENTS.md                         # Instructions for AI coding assistants
 ├── CLAUDE.md                         # Points Claude Code at AGENTS.md
@@ -138,20 +158,32 @@ Route / Page / Server Action  →  Controller  →  Model
 | `GET /users/{id}/edit` | `app/users/[id]/edit/page.tsx` → renders `UserEditForm` | `UserController.getById` | `lib/models/user.ts` |
 | Save the edit form | Server Action `updateUserAction` in `app/users/actions.ts` | `UserController.update` | `lib/models/user.ts` |
 | **Delete** button | Server Action `deleteUserAction` in `app/users/actions.ts` | `UserController.delete` | `lib/models/user.ts` |
+| `GET` / `POST` `/api/announcements` | `app/api/announcements/route.ts` | `ApiAnnouncementController.getAll` / `create` | `lib/models/announcement.ts` |
+| `GET` / `PUT` / `PATCH` / `DELETE` `/api/announcements/{id}` | `app/api/announcements/[id]/route.ts` | `ApiAnnouncementController.getById` / `replace` / `update` / `delete` | `lib/models/announcement.ts` |
+| `GET /announcements` | `app/announcements/page.tsx` → renders `AnnouncementListView` + `AnnouncementCreateForm` | `AnnouncementController.getAll` | `lib/models/announcement.ts` |
+| `POST /announcements` (the form) | Server Action `createAnnouncementAction` in `app/announcements/actions.ts` | `AnnouncementController.create` | `lib/models/announcement.ts` |
+| `GET /announcements/{id}` | `app/announcements/[id]/page.tsx` → renders `AnnouncementDetailView` | `AnnouncementController.getById` | `lib/models/announcement.ts` |
+| `GET /announcements/{id}/edit` | `app/announcements/[id]/edit/page.tsx` → renders `AnnouncementEditForm` | `AnnouncementController.getById` | `lib/models/announcement.ts` |
+| Save the announcement edit form | Server Action `updateAnnouncementAction` in `app/announcements/actions.ts` | `AnnouncementController.update` | `lib/models/announcement.ts` |
+| Announcement **Delete** button | Server Action `deleteAnnouncementAction` in `app/announcements/actions.ts` | `AnnouncementController.delete` | `lib/models/announcement.ts` |
 
 | MVC role | In this project | Notes |
 |---|---|---|
-| **Model** | `lib/models/user.ts` — the User Model: the one in-memory user store and CRUD functions (`createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser`) | No HTTP or Next.js code, so it can later be swapped for a database without touching the controllers. No database yet, so data is lost on every server restart. |
-| **Controller** | `lib/controllers/ApiUserController.ts` and `lib/controllers/UserController.ts`, plus the `route.ts` files, pages and Server Actions that call them | Validation and request handling live in the controllers. The user `route.ts` files, the `app/users/` pages and `app/users/actions.ts` are thin: they call the matching controller function and pass the result on. |
-| **View** | `lib/views/users/` (`UserListView`, `UserDetailView`, `UserCreateForm`, `UserEditForm`, `DeleteUserButton`), `page.tsx` files and `layout.tsx`, plus the JSON bodies the API returns | The components in `lib/views/` contain only markup and Tailwind classes: they get data and Server Actions through props and never call a controller or the Model. The `app/users/` pages fetch the data from `UserController` and hand it to the views. For the API there is no separate view file — `NextResponse.json(...)` in `ApiUserController` *is* the view. |
+| **Model** | `lib/models/user.ts` — the User Model: the one in-memory user store and CRUD functions (`createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser`). `lib/models/announcement.ts` — the Announcement Model, built the same way (`createAnnouncement`, `getAllAnnouncements`, `getAnnouncementById`, `replaceAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`) | No HTTP or Next.js code, so they can later be swapped for a database without touching the controllers. No database yet, so data is lost on every server restart. |
+| **Controller** | `lib/controllers/ApiUserController.ts` and `lib/controllers/UserController.ts`, plus the `route.ts` files, pages and Server Actions that call them. `lib/controllers/ApiAnnouncementController.ts` and `lib/controllers/AnnouncementController.ts` for announcements, called by the `app/api/announcements/` routes and the `app/announcements/` pages | Validation and request handling live in the controllers. The `route.ts` files, pages and the `actions.ts` files are thin: they call the matching controller function and pass the result on. |
+| **View** | `lib/views/users/` (`UserListView`, `UserDetailView`, `UserCreateForm`, `UserEditForm`, `DeleteUserButton`), `lib/views/announcements/` (`AnnouncementListView`, `AnnouncementDetailView`, `AnnouncementCreateForm`, `AnnouncementEditForm`, `DeleteAnnouncementButton`), `page.tsx` files and `layout.tsx`, plus the JSON bodies the API returns | The components in `lib/views/` contain only markup and Tailwind classes: they get data and Server Actions through props and never call a controller or the Model. The `app/users/` and `app/announcements/` pages fetch the data from `UserController` and hand it to the views. For the API there is no separate view file — `NextResponse.json(...)` in `ApiUserController` *is* the view. |
 
 The mapping is loose in a few places. Next.js itself does the job of a router/front controller (matching a URL to a file), and `/hello`, `/sum` and `/api/health` are small `route.ts` files that do their own work without a Model.
 
 **Two user controllers, one Model.** `ApiUserController` is for the JSON API: its functions take the `Request` (and route params), call the Model, and return `NextResponse.json(...)` with the right status code (201, 400, 404). `UserController` is for pages: its functions take plain arguments and return plain objects like `{ user }` or `{ error }` that a `page.tsx` can render, with no HTTP code at all. Both use the same validation rule (`name` is required) and the same User Model, so the API and the pages always show the same data — a user created with `POST /api/users` appears at `/users`, and a user created with the form on `/users` appears at `GET /api/users`.
 
-**Why Server Actions for the page forms?** Next.js can't have a `page.tsx` and a `route.ts` for the same URL, so the `/users` pages can't have normal `POST` / `PUT` / `DELETE` route handlers. Instead, each form's `action` is a **Server Action** (`app/users/actions.ts`, marked `"use server"`): when the form is submitted, the browser sends a `POST` to the page it's on and Next.js runs that function on the server. The edit form and the Delete buttons attach the user's id with `action.bind(null, userId)`, as the Next.js forms guide recommends.
+**Two announcement controllers, one Model.** Announcements follow the same split: `ApiAnnouncementController` takes the `Request` and returns `NextResponse.json(...)` (201, 400, 404) for the `/api/announcements` routes, while `AnnouncementController` takes plain arguments and returns `{ announcement }`, `{ announcements }`, `{ id }` or `{ error }` for the `/announcements` pages. An announcement created, edited or deleted with `/api/announcements` shows the change at `/announcements` straight away, and the other way round. Both require a non-empty `title` and `content`, and both reject an id that isn't a whole number (`abc`, `1.5`) — the API side with **400**, unlike the user controllers, which report such ids as **404** "not found".
 
-### All user routes
+**Why Server Actions for the page forms?** Next.js can't have a `page.tsx` and a `route.ts` for the same URL, so the `/users` and `/announcements` pages can't have normal `POST` / `PUT` / `DELETE` route handlers. Instead, each form's `action` is a **Server Action** (`app/users/actions.ts` and `app/announcements/actions.ts`, marked `"use server"`): when the form is submitted, the browser sends a `POST` to the page it's on and Next.js runs that function on the server. The edit forms and the Delete buttons attach the record's id with `action.bind(null, id)`, as the Next.js forms guide recommends.
+
+### All user and announcement routes
+
+#### Users
 
 **Pages (UserController)** — HTML for people using a browser:
 
@@ -177,6 +209,32 @@ The mapping is loose in a few places. Next.js itself does the job of a router/fr
 
 Both sides go through the same User Model, so a change made on one side shows up on the other straight away.
 
+#### Announcements
+
+**Pages (AnnouncementController)** — HTML for people using a browser:
+
+| Method / action | URL | CRUD |
+|---|---|---|
+| `GET` | `/announcements` | **Read** — list all announcements, newest first |
+| Server Action `createAnnouncementAction` (form `POST`) | `/announcements` | **Create** |
+| `GET` | `/announcements/{id}` | **Read** — one announcement ("Announcement not found" if the id doesn't exist) |
+| `GET` | `/announcements/{id}/edit` | **Read** — the edit form, pre-filled ("Announcement not found" if missing) |
+| Server Action `updateAnnouncementAction` (form `POST`) | `/announcements/{id}/edit` | **Update** — then redirects to `/announcements/{id}` |
+| Server Action `deleteAnnouncementAction` (form `POST`) | `/announcements` or `/announcements/{id}` | **Delete** — then redirects to `/announcements` |
+
+**API (ApiAnnouncementController)** — JSON for Postman, scripts and other programs:
+
+| Method | URL | CRUD |
+|---|---|---|
+| `GET` | `/api/announcements` | **Read** — list all announcements, newest first |
+| `POST` | `/api/announcements` | **Create** |
+| `GET` | `/api/announcements/{id}` | **Read** — one announcement |
+| `PUT` | `/api/announcements/{id}` | **Update** — replace the whole announcement |
+| `PATCH` | `/api/announcements/{id}` | **Update** — change only the fields sent |
+| `DELETE` | `/api/announcements/{id}` | **Delete** |
+
+Both sides go through the same Announcement Model, so a change made on one side shows up on the other straight away. All of this data lives **in memory** and resets when the server restarts — the database comes in a later week.
+
 ### Files by MVC role
 
 ```
@@ -192,6 +250,11 @@ alumni/
 │   ├── users/[id]/page.tsx           [Page]        GET /users/{id} → UserController, rendered by lib/views
 │   ├── users/[id]/edit/page.tsx      [Page]        GET /users/{id}/edit → UserController, rendered by lib/views
 │   ├── users/[id]/not-found.tsx      [View]        "User not found" (404)
+│   ├── announcements/page.tsx        [Page]        GET /announcements      → AnnouncementController, rendered by lib/views
+│   ├── announcements/actions.ts      [Action]      create / update / delete → AnnouncementController
+│   ├── announcements/[id]/page.tsx   [Page]        GET /announcements/{id} → AnnouncementController, rendered by lib/views
+│   ├── announcements/[id]/edit/page.tsx  [Page]    GET /announcements/{id}/edit → AnnouncementController, rendered by lib/views
+│   ├── announcements/[id]/not-found.tsx  [View]    "Announcement not found" (404)
 │   ├── hello/route.ts                [Controller]  /hello
 │   ├── hello/[name]/route.ts         [Controller]  /hello/{name}
 │   ├── sum/[number1]/[number2]/route.ts  [Controller]  /sum/{a}/{b}
@@ -199,19 +262,29 @@ alumni/
 │       ├── health/route.ts           [Controller]  /api/health
 │       ├── users/route.ts            [Route]       /api/users      → ApiUserController
 │       ├── users/[id]/route.ts       [Route]       /api/users/{id} → ApiUserController
+│       ├── announcements/route.ts    [Route]       /api/announcements      → ApiAnnouncementController
+│       ├── announcements/[id]/route.ts  [Route]    /api/announcements/{id} → ApiAnnouncementController
 │       └── swagger/
 │           ├── page.tsx              [View]        /api/swagger
 │           └── SwaggerView.tsx       [View]        Swagger UI component
 ├── lib/
 │   ├── controllers/
 │   │   ├── ApiUserController.ts      [Controller]  user CRUD for the JSON API
-│   │   └── UserController.ts         [Controller]  user CRUD for pages
+│   │   ├── UserController.ts         [Controller]  user CRUD for pages
+│   │   ├── ApiAnnouncementController.ts  [Controller]  announcement CRUD for the JSON API
+│   │   └── AnnouncementController.ts [Controller]  announcement CRUD for pages
 │   ├── models/user.ts                [Model]       the user store + CRUD functions
+│   ├── models/announcement.ts        [Model]       the announcement store + CRUD functions
 │   ├── views/users/UserListView.tsx  [View]        table of users
 │   ├── views/users/UserDetailView.tsx  [View]      one user
 │   ├── views/users/UserCreateForm.tsx  [View]      "Add a user" form
 │   ├── views/users/UserEditForm.tsx  [View]        "Edit user" form
 │   ├── views/users/DeleteUserButton.tsx  [View]    Delete button with confirmation
+│   ├── views/announcements/AnnouncementListView.tsx    [View]  table of announcements
+│   ├── views/announcements/AnnouncementDetailView.tsx  [View]  one announcement
+│   ├── views/announcements/AnnouncementCreateForm.tsx  [View]  "Add an announcement" form
+│   ├── views/announcements/AnnouncementEditForm.tsx    [View]  "Edit announcement" form
+│   ├── views/announcements/DeleteAnnouncementButton.tsx  [View]  Delete button with confirmation
 │   └── openapi.ts                    [Other]       API documentation (OpenAPI spec)
 └── config files                      [Config]      package.json, next.config.ts, tsconfig.json, …
 ```
@@ -222,30 +295,46 @@ alumni/
 | `app/layout.tsx` | Root `<html>`/`<body>` wrapper, fonts and page metadata shared by every page | View |
 | `app/globals.css` | Tailwind CSS import and global colours / fonts | View |
 | `app/favicon.ico` | Browser tab icon | View |
-| `app/page.tsx` | `GET /` — temporary homepage | View |
+| `app/page.tsx` | `GET /` — temporary homepage with links to **Users** and **Announcements** | View |
 | `app/about/page.tsx` | `GET /about` — temporary about page | View |
 | `app/users/page.tsx` | `GET /users` — calls `UserController.getAll()` and renders `UserCreateForm` above `UserListView`. Renders on every request (`connection()`), so new users always show | Page (Route → Controller → View) |
 | `app/users/actions.ts` | The three Server Actions behind the page forms. `createUserAction` → `UserController.create`, returns the error or a success message. `updateUserAction` → `UserController.update`, returns the error or redirects to `/users/{id}`. `deleteUserAction` → `UserController.delete`, returns "not found" or redirects to `/users`. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
 | `app/users/[id]/page.tsx` | `GET /users/{id}` — calls `UserController.getById(id)` and renders `UserDetailView`; unknown id → `notFound()` | Page (Route → Controller → View) |
 | `app/users/[id]/edit/page.tsx` | `GET /users/{id}/edit` — calls `UserController.getById(id)` and renders `UserEditForm`; unknown id → `notFound()` | Page (Route → Controller → View) |
 | `app/users/[id]/not-found.tsx` | The "User not found" page, returned with HTTP 404 for `/users/{id}` and `/users/{id}/edit` | View |
+| `app/announcements/page.tsx` | `GET /announcements` — calls `AnnouncementController.getAll()` and renders `AnnouncementCreateForm` above `AnnouncementListView`. Renders on every request (`connection()`) | Page (Route → Controller → View) |
+| `app/announcements/actions.ts` | The three Server Actions behind the announcement forms. `createAnnouncementAction` → `AnnouncementController.create`, returns the error or a success message. `updateAnnouncementAction` → `AnnouncementController.update`, returns the error or redirects to `/announcements/{id}`. `deleteAnnouncementAction` → `AnnouncementController.delete`, returns "not found" or redirects to `/announcements`. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
+| `app/announcements/[id]/page.tsx` | `GET /announcements/{id}` — calls `AnnouncementController.getById(id)` and renders `AnnouncementDetailView`; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
+| `app/announcements/[id]/edit/page.tsx` | `GET /announcements/{id}/edit` — calls `AnnouncementController.getById(id)` and renders `AnnouncementEditForm`; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
+| `app/announcements/[id]/not-found.tsx` | The "Announcement not found" page, returned with HTTP 404 for `/announcements/{id}` and `/announcements/{id}/edit` | View |
 | `app/hello/route.ts` | `GET /hello` — returns plain text `Hello, World!` | Controller (no Model) |
 | `app/hello/[name]/route.ts` | `GET /hello/{name}` — reads the `name` URL parameter, returns `Hello, {name}!` | Controller (no Model) |
 | `app/sum/[number1]/[number2]/route.ts` | `GET /sum/{a}/{b}` — validates two URL parameters as numbers and returns their sum, or a 400 error | Controller (no Model) |
 | `app/api/health/route.ts` | `GET /api/health` — returns `{ "status": "ok" }` | Controller (no Model) |
 | `app/api/users/route.ts` | `GET` and `POST` handlers, each a one-line call to `ApiUserController.getAll` / `create` | Route → Controller |
 | `app/api/users/[id]/route.ts` | `GET`, `PUT`, `PATCH`, `DELETE` handlers, each a one-line call to `ApiUserController.getById` / `replace` / `update` / `delete` | Route → Controller |
+| `app/api/announcements/route.ts` | `GET` and `POST` handlers, each a one-line call to `ApiAnnouncementController.getAll` / `create` | Route → Controller |
+| `app/api/announcements/[id]/route.ts` | `GET`, `PUT`, `PATCH`, `DELETE` handlers, each a one-line call to `ApiAnnouncementController.getById` / `replace` / `update` / `delete` | Route → Controller |
 | `app/api/swagger/page.tsx` | `GET /api/swagger` — page that hands the OpenAPI spec to Swagger UI | View |
 | `app/api/swagger/SwaggerView.tsx` | Client component that loads `swagger-ui-dist` in the browser and draws the docs | View |
 | `lib/controllers/ApiUserController.ts` | API-side user controller: `create`, `getAll`, `getById`, `replace`, `update`, `delete`. Reads form-data from the `Request`, validates it, calls the User Model and returns `NextResponse.json(...)` with 200 / 201 / 400 / 404 | Controller |
 | `lib/controllers/UserController.ts` | Page-side user controller: `create`, `getAll`, `getById`, `update`, `delete`. Takes plain arguments and returns `{ user }`, `{ users }`, `{ id }` or `{ error }` — no `Request` / `NextResponse`. Also exports the shared `name` validation rule | Controller |
+| `lib/controllers/ApiAnnouncementController.ts` | API-side announcement controller: `create`, `getAll`, `getById`, `replace`, `update`, `delete`. Reads form-data from the `Request`, validates it (`title` and `content` required), calls the Announcement Model and returns `NextResponse.json(...)` — 200 / 201, 400 for a bad body or an id that isn't a whole number, 404 if not found. Used by the `/api/announcements` routes | Controller |
+| `lib/controllers/AnnouncementController.ts` | Page-side announcement controller: `create`, `getAll`, `getById`, `update`, `delete`. Takes plain arguments and returns `{ announcement }`, `{ announcements }`, `{ id }` or `{ error }` — no `Request` / `NextResponse`. Also exports the shared validation rule (`validateAnnouncement`) and id check (`parseId`). Used by the `/announcements` pages | Controller |
 | `lib/views/users/UserListView.tsx` | Receives `users` and the delete action as props and renders the table (id, name, email, department, age) with **View**, **Edit** and **Delete** for each row; shows a short message when the list is empty | View |
 | `lib/views/users/UserDetailView.tsx` | Receives one `user` and the delete action; shows every field, an **Edit** link, a **Delete** button and a link back to the list | View |
 | `lib/views/users/UserCreateForm.tsx` | Receives the Server Action as a prop and renders the form (name required, email, age). Shows the action's validation error or success message, keeps typed values after an error, and disables the button while saving. A Client Component only because React's `useActionState` runs in the browser | View |
 | `lib/views/users/UserEditForm.tsx` | Same fields as the create form, pre-filled with the user's current values; shows the update action's validation error and keeps what was typed. Client Component (`useActionState`) | View |
 | `lib/views/users/DeleteUserButton.tsx` | A small form with a **Delete** button: asks "Delete user …?" in the browser, runs the delete action, and shows its error (e.g. the user was already deleted). Client Component (confirmation + `useActionState`) | View |
+| `lib/views/announcements/AnnouncementListView.tsx` | Receives `announcements` and the delete action; renders a table (title, author, date) with **View**, **Edit** and **Delete** for each row; shows a short message when the list is empty | View |
+| `lib/views/announcements/AnnouncementDetailView.tsx` | Receives one `announcement` and the delete action; shows the title, author, posted / updated dates and full content, an **Edit** link, a **Delete** button and a link back to the list | View |
+| `lib/views/announcements/AnnouncementCreateForm.tsx` | Form with title (required), content (required, a textarea) and author. Shows the create action's validation error or success message and keeps typed values after an error. Client Component (`useActionState`) | View |
+| `lib/views/announcements/AnnouncementEditForm.tsx` | Same fields, pre-filled with the announcement's current values; shows the update action's validation error. Client Component (`useActionState`) | View |
+| `lib/views/announcements/DeleteAnnouncementButton.tsx` | A small form with a **Delete** button: asks "Delete announcement …?" in the browser, runs the delete action, and shows its error (e.g. already deleted). Client Component | View |
+| `lib/views/announcements/formatDate.ts` | Formats an ISO date for display (e.g. `10/10/2026, 15:24:58 UTC`) | View (helper) |
 | `lib/models/user.ts` | The User Model: `User` type, the in-memory user store (array + an id counter that never reuses ids), and the CRUD functions `createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser`. Pure data code — no `Request` or `NextResponse` | Model |
-| `lib/openapi.ts` | Hand-written OpenAPI 3 description of the `/api/*` routes, the `/users` pages and their Server Actions | Other (documentation) |
+| `lib/models/announcement.ts` | The Announcement Model: `Announcement` type (`id`, required `title` and `content`, optional `author`, and `createdAt` / `updatedAt` ISO dates set by the Model), its own in-memory store (array + an id counter that never reuses ids), and the CRUD functions `createAnnouncement`, `getAllAnnouncements` (newest first), `getAnnouncementById`, `replaceAnnouncement` (keeps `id` and `createdAt`), `updateAnnouncement`, `deleteAnnouncement`. Every change refreshes `updatedAt`. Pure data code — no `Request` or `NextResponse`. Used only through the two announcement controllers | Model |
+| `lib/openapi.ts` | Hand-written OpenAPI 3 description of the `/api/*` routes, and the `/users` and `/announcements` pages and their Server Actions | Other (documentation) |
 | `AGENTS.md`, `CLAUDE.md` | Instructions for AI coding assistants | Other |
 | `package.json`, `package-lock.json` | Dependencies and npm scripts | Config |
 | `next.config.ts`, `tsconfig.json`, `next-env.d.ts` | Next.js and TypeScript configuration | Config |
@@ -284,8 +373,9 @@ Because every user route and page reads from the same Model, the new user is imm
 
 The code works, but a few things will change as the project grows (most likely when the in-memory store is replaced by Supabase):
 
-- **Data isn't persistent.** The Model keeps users in memory, so they all disappear when the server restarts. The store is kept on `globalThis` because Next.js loads `lib/models/user.ts` separately for API routes and for pages — without that, `/api/users` and `/users` would each have their own copy. A database removes this workaround.
-- **The page forms aren't a public API.** Create, update and delete on the pages are Server Actions, which Next.js only runs for requests carrying an action ID generated at build time, so they can't be called from Postman or Swagger's **Try it out** (`/api/users` is the API for that). There is also no login check yet — anyone who can open `/users` can add, edit or delete users.
+- **Data isn't persistent.** The Models keep users and announcements in memory, so they all disappear when the server restarts — the database comes in a later week. Each store is kept on `globalThis` because Next.js loads the model files separately for API routes and for pages — without that, `/api/users` and `/users` would each have their own copy. A database removes this workaround.
+- **Invalid ids are handled differently for users and announcements.** An id like `abc` gives **400** on `/api/announcements/{id}` but **404** on `/api/users/{id}`.
+- **The page forms aren't a public API.** Create, update and delete on the pages are Server Actions, which Next.js only runs for requests carrying an action ID generated at build time, so they can't be called from Postman or Swagger's **Try it out** (`/api/users` and `/api/announcements` are the APIs for that). There is also no login check yet — anyone who can open `/users` or `/announcements` can add, edit or delete records.
 - **The edit form only covers name, email and age.** Other fields (e.g. `department`) are kept but can only be changed through the API, and a field cleared in the form is saved as an empty string rather than removed.
 - **No separate view layer for the API.** JSON responses and error messages are built inside `ApiUserController`, so for the API the controller and the view are the same code.
 - **Validation lives in the controller layer, not the Model.** The "`name` is required" rule is defined once (in `UserController`, and reused by `ApiUserController`), but the Model itself accepts any data it's given.
@@ -307,13 +397,15 @@ npm run dev
 
 The app will be available at [http://localhost:3000](http://localhost:3000), and the API docs at [http://localhost:3000/api/swagger](http://localhost:3000/api/swagger).
 
+> **Note:** there is no database yet. Users and announcements are kept **in memory**, so everything you add resets when the server restarts. The database comes in a later week.
+
 *(Docker and Supabase setup — environment variables and `docker compose up` — will be added here once they're part of the project.)*
 
 ---
 
 ## 📘 API Documentation
 
-Interactive **Swagger / OpenAPI** documentation for every API route is served at [`/api/swagger`](http://localhost:3000/api/swagger), with the user endpoints grouped under **API Users**. From there you can browse each endpoint's request body and example responses, and send real requests to the running server with **Try it out**.
+Interactive **Swagger / OpenAPI** documentation for every API route is served at [`/api/swagger`](http://localhost:3000/api/swagger), with the user endpoints grouped under **API Users** and the announcement endpoints under **API Announcements**. From there you can browse each endpoint's request body and example responses, and send real requests to the running server with **Try it out**.
 
 | Method | Route | Description |
 |---|---|---|
@@ -324,6 +416,12 @@ Interactive **Swagger / OpenAPI** documentation for every API route is served at
 | `PUT` | `/api/users/{id}` | Replace a user (form-data) |
 | `PATCH` | `/api/users/{id}` | Update some fields of a user (form-data) |
 | `DELETE` | `/api/users/{id}` | Delete a user |
+| `GET` | `/api/announcements` | List all announcements, newest first |
+| `POST` | `/api/announcements` | Create an announcement (form-data: `title`, `content` required; `author` optional) |
+| `GET` | `/api/announcements/{id}` | Get one announcement |
+| `PUT` | `/api/announcements/{id}` | Replace an announcement (form-data) |
+| `PATCH` | `/api/announcements/{id}` | Update some fields of an announcement (form-data) |
+| `DELETE` | `/api/announcements/{id}` | Delete an announcement |
 
 The same users can also be browsed as HTML pages, documented in Swagger under **Users (pages)**:
 
@@ -337,6 +435,19 @@ The same users can also be browsed as HTML pages, documented in Swagger under **
 | `POST` | `/users/{id}/edit` | Sent by the edit form (Server Action) — browser only |
 
 The `POST` rows are browser form submissions handled by Server Actions, not REST endpoints — from Postman or scripts, use the `/api/users` routes above.
+
+Announcements can also be managed as HTML pages, documented in Swagger under **Announcements (pages)**:
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/announcements` | Page with the "Add an announcement" form and the list of all announcements, newest first |
+| `POST` | `/announcements` | Sent by the "Add an announcement" form or a row's Delete button (Server Actions) — browser only |
+| `GET` | `/announcements/{id}` | Page showing one announcement, or an "Announcement not found" page (404) |
+| `POST` | `/announcements/{id}` | Sent by the Delete button on that page (Server Action) — browser only |
+| `GET` | `/announcements/{id}/edit` | Edit form, pre-filled, or an "Announcement not found" page (404) |
+| `POST` | `/announcements/{id}/edit` | Sent by the edit form (Server Action) — browser only |
+
+As with users, the `POST` rows are Server Actions, not REST endpoints — from Postman or scripts, use the `/api/announcements` routes.
 
 The OpenAPI spec is written by hand in [`lib/openapi.ts`](lib/openapi.ts) and rendered with [`swagger-ui-dist`](https://www.npmjs.com/package/swagger-ui-dist).
 

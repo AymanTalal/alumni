@@ -83,6 +83,41 @@ const htmlResponse = (description: string) => ({
 const NOT_FORM_DATA = "Request body must be form-data";
 const NAME_REQUIRED = '"name" is required and must be a non-empty string';
 
+// ---- Announcements ----
+
+const announcementIdParam = {
+  name: "id",
+  in: "path",
+  required: true,
+  description: "The announcement's id (a whole number; anything else returns 400)",
+  schema: { type: "integer", example: 1 },
+};
+
+const announcementResponse = (description: string, example: object) => ({
+  description,
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/Announcement" },
+      example,
+    },
+  },
+});
+
+const exampleAnnouncement = {
+  id: 1,
+  title: "Alumni reunion",
+  content: "Join us on campus on 12 June 2027.",
+  author: "Alumni Office",
+  createdAt: "2026-10-10T09:30:00.000Z",
+  updatedAt: "2026-10-10T09:30:00.000Z",
+};
+
+const announcementNotFound = jsonError('Announcement with id "999" not found');
+
+const TITLE_REQUIRED = '"title" is required and must be a non-empty string';
+const CONTENT_REQUIRED = '"content" is required and must be a non-empty string';
+const INVALID_ANNOUNCEMENT_ID = 'Announcement id "abc" is not a valid number';
+
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
@@ -90,9 +125,10 @@ export const openApiSpec = {
     version: "0.1.0",
     description:
       "API for the Alumni Tracking System (YBSB3001 Web Programming). " +
-      "Users are stored in memory for now and are lost when the server restarts. " +
-      "The API and the HTML pages share the same data: a user created with POST /api/users " +
-      "appears at /users.",
+      "Users and announcements are stored in memory for now and are lost when the server " +
+      "restarts. The API and the HTML pages share the same data: a user created with " +
+      "POST /api/users appears at /users, and an announcement created with " +
+      "POST /api/announcements appears at /announcements.",
   },
   tags: [
     { name: "Health", description: "Server status" },
@@ -101,6 +137,16 @@ export const openApiSpec = {
       name: "Users (pages)",
       description:
         "HTML pages and browser forms that list, create, edit and delete the same users as the API",
+    },
+    {
+      name: "API Announcements",
+      description: "JSON API: create, read, update and delete announcements",
+    },
+    {
+      name: "Announcements (pages)",
+      description:
+        "HTML pages and browser forms that list, create, edit and delete the same announcements " +
+        "as the API",
     },
   ],
   paths: {
@@ -352,6 +398,259 @@ export const openApiSpec = {
         responses: serverActionResponses,
       },
     },
+    "/api/announcements": {
+      get: {
+        tags: ["API Announcements"],
+        operationId: "listAnnouncements",
+        summary: "List all announcements",
+        description:
+          "Returns every announcement, newest first, or an empty array if there are none.",
+        responses: {
+          200: {
+            description: "Array of announcements, newest first",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Announcement" } },
+                example: [
+                  {
+                    id: 2,
+                    title: "Career fair",
+                    content: "Meet employers in the main hall.",
+                    createdAt: "2026-10-11T08:00:00.000Z",
+                    updatedAt: "2026-10-11T08:00:00.000Z",
+                  },
+                  exampleAnnouncement,
+                ],
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["API Announcements"],
+        operationId: "createAnnouncement",
+        summary: "Create an announcement",
+        description:
+          "Send form-data. `title` and `content` are required, `author` is optional. The server " +
+          "assigns the `id` and sets `createdAt` and `updatedAt`; any other fields are ignored.",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: { $ref: "#/components/schemas/AnnouncementInput" },
+            },
+          },
+        },
+        responses: {
+          201: announcementResponse("Announcement created", exampleAnnouncement),
+          400: badRequest({
+            "Body is not form-data": NOT_FORM_DATA,
+            "title missing or blank": TITLE_REQUIRED,
+            "content missing or blank": CONTENT_REQUIRED,
+          }),
+        },
+      },
+    },
+    "/api/announcements/{id}": {
+      parameters: [announcementIdParam],
+      get: {
+        tags: ["API Announcements"],
+        operationId: "getAnnouncement",
+        summary: "Get one announcement",
+        responses: {
+          200: announcementResponse("The announcement", exampleAnnouncement),
+          400: badRequest({ "id is not a whole number": INVALID_ANNOUNCEMENT_ID }),
+          404: announcementNotFound,
+        },
+      },
+      put: {
+        tags: ["API Announcements"],
+        operationId: "replaceAnnouncement",
+        summary: "Replace an announcement",
+        description:
+          "Replaces the announcement with the form-data sent. `title` and `content` are required; " +
+          "`author` is removed if not sent. The `id` and `createdAt` never change, and `updatedAt` " +
+          "is set to now.",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: { $ref: "#/components/schemas/AnnouncementInput" },
+            },
+          },
+        },
+        responses: {
+          200: announcementResponse("Updated announcement", {
+            ...exampleAnnouncement,
+            title: "Alumni reunion (new date)",
+            content: "Moved to 19 June 2027.",
+            author: undefined,
+            updatedAt: "2026-10-12T14:00:00.000Z",
+          }),
+          400: badRequest({
+            "id is not a whole number": INVALID_ANNOUNCEMENT_ID,
+            "Body is not form-data": NOT_FORM_DATA,
+            "title missing or blank": TITLE_REQUIRED,
+            "content missing or blank": CONTENT_REQUIRED,
+          }),
+          404: announcementNotFound,
+        },
+      },
+      patch: {
+        tags: ["API Announcements"],
+        operationId: "updateAnnouncement",
+        summary: "Update some fields of an announcement",
+        description:
+          "Changes only the fields sent and keeps the rest. `title` and `content` are optional " +
+          "here, but can't be blank if sent. `updatedAt` is set to now.",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: { $ref: "#/components/schemas/AnnouncementPatch" },
+            },
+          },
+        },
+        responses: {
+          200: announcementResponse("Updated announcement", {
+            ...exampleAnnouncement,
+            content: "Join us on campus on 12 June 2027. Registration opens soon.",
+            updatedAt: "2026-10-12T14:00:00.000Z",
+          }),
+          400: badRequest({
+            "id is not a whole number": INVALID_ANNOUNCEMENT_ID,
+            "Body is not form-data": NOT_FORM_DATA,
+            "title sent but blank": TITLE_REQUIRED,
+            "content sent but blank": CONTENT_REQUIRED,
+          }),
+          404: announcementNotFound,
+        },
+      },
+      delete: {
+        tags: ["API Announcements"],
+        operationId: "deleteAnnouncement",
+        summary: "Delete an announcement",
+        responses: {
+          200: {
+            description: "Announcement deleted",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    message: { type: "string" },
+                    id: { type: "integer" },
+                  },
+                },
+                example: { message: "Announcement deleted", id: 1 },
+              },
+            },
+          },
+          400: badRequest({ "id is not a whole number": INVALID_ANNOUNCEMENT_ID }),
+          404: announcementNotFound,
+        },
+      },
+    },
+    "/announcements": {
+      get: {
+        tags: ["Announcements (pages)"],
+        operationId: "announcementsPage",
+        summary: "Announcements list page (HTML)",
+        description:
+          "Renders an HTML page with an \"Add an announcement\" form (title and content required, " +
+          "author optional) and a table of every announcement, newest first, with its title, " +
+          "author and date and **View**, **Edit** and **Delete** actions. Shows a short message " +
+          "when there are no announcements yet.",
+        responses: {
+          200: htmlResponse("HTML page with the form and the list of announcements"),
+        },
+      },
+      post: {
+        tags: ["Announcements (pages)"],
+        operationId: "announcementsPageFormActions",
+        summary:
+          "Create or delete an announcement from the /announcements page (Server Actions, browser only)",
+        description:
+          "Two forms on `/announcements` submit to this URL, and Next.js runs the matching " +
+          "**Server Action** from `app/announcements/actions.ts`:\n\n" +
+          "- the **\"Add an announcement\"** form → `createAnnouncementAction` → " +
+          "`AnnouncementController.create`. On success the form shows \"Announcement … created " +
+          "with id …\" and the list refreshes; a missing title or content is shown as an error " +
+          "in the form.\n" +
+          "- a row's **Delete** button (after a browser confirmation) → `deleteAnnouncementAction` " +
+          "→ `AnnouncementController.delete`. On success the list refreshes; if the announcement " +
+          "no longer exists, \"Announcement with id … not found\" is shown next to the button.\n\n" +
+          SERVER_ACTION_NOTE +
+          "**To create or delete announcements from Postman or scripts, use " +
+          "`POST /api/announcements` and `DELETE /api/announcements/{id}`.**",
+        responses: serverActionResponses,
+      },
+    },
+    "/announcements/{id}": {
+      parameters: [announcementIdParam],
+      get: {
+        tags: ["Announcements (pages)"],
+        operationId: "announcementPage",
+        summary: "Announcement page (HTML)",
+        description:
+          "Renders an HTML page with one announcement's title, author, dates and full content, " +
+          "an **Edit** link, a **Delete** button and a link back to the list.",
+        responses: {
+          200: htmlResponse("HTML page with the announcement"),
+          404: htmlResponse(
+            'HTML "Announcement not found" page, when no announcement has this id or the id ' +
+              "isn't a whole number",
+          ),
+        },
+      },
+      post: {
+        tags: ["Announcements (pages)"],
+        operationId: "announcementPageDeleteAction",
+        summary: "Delete the announcement from its page (Server Action, browser only)",
+        description:
+          "The **Delete** button on `/announcements/{id}` asks the browser for confirmation, then " +
+          "submits to this URL. Next.js runs `deleteAnnouncementAction` " +
+          "(`app/announcements/actions.ts`), which calls `AnnouncementController.delete`. On " +
+          "success the browser is redirected to `/announcements`; if the announcement no longer " +
+          "exists, \"Announcement with id … not found\" is shown next to the button.\n\n" +
+          SERVER_ACTION_NOTE +
+          "**To delete announcements from Postman or scripts, use `DELETE /api/announcements/{id}`.**",
+        responses: serverActionResponses,
+      },
+    },
+    "/announcements/{id}/edit": {
+      parameters: [announcementIdParam],
+      get: {
+        tags: ["Announcements (pages)"],
+        operationId: "announcementEditPage",
+        summary: "Edit announcement page (HTML)",
+        description:
+          "Renders an HTML form with the announcement's title, content and author pre-filled.",
+        responses: {
+          200: htmlResponse("HTML page with the pre-filled edit form"),
+          404: htmlResponse(
+            'HTML "Announcement not found" page, when no announcement has this id or the id ' +
+              "isn't a whole number",
+          ),
+        },
+      },
+      post: {
+        tags: ["Announcements (pages)"],
+        operationId: "announcementEditFormAction",
+        summary: "Save the announcement edit form (Server Action, browser only)",
+        description:
+          "Submitting the edit form sends the request to this URL. Next.js runs " +
+          "`updateAnnouncementAction` (`app/announcements/actions.ts`), which calls " +
+          "`AnnouncementController.update` with `title`, `content` and `author` (`createdAt` is " +
+          "kept and `updatedAt` refreshed). On success the browser is redirected to " +
+          "`/announcements/{id}`; a missing title or content, or an announcement that no longer " +
+          "exists, is shown as an error in the form.\n\n" +
+          SERVER_ACTION_NOTE +
+          "**To update announcements from Postman or scripts, use `PUT` or " +
+          "`PATCH /api/announcements/{id}`.**",
+        responses: serverActionResponses,
+      },
+    },
   },
   components: {
     schemas: {
@@ -389,6 +688,35 @@ export const openApiSpec = {
       Error: {
         type: "object",
         properties: { error: { type: "string" } },
+      },
+      Announcement: {
+        type: "object",
+        required: ["id", "title", "content", "createdAt", "updatedAt"],
+        properties: {
+          id: { type: "integer", example: 1 },
+          title: { type: "string", example: "Alumni reunion" },
+          content: { type: "string", example: "Join us on campus on 12 June 2027." },
+          author: { type: "string", example: "Alumni Office" },
+          createdAt: { type: "string", format: "date-time", example: "2026-10-10T09:30:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2026-10-10T09:30:00.000Z" },
+        },
+      },
+      AnnouncementInput: {
+        type: "object",
+        required: ["title", "content"],
+        properties: {
+          title: { type: "string", example: "Alumni reunion" },
+          content: { type: "string", example: "Join us on campus on 12 June 2027." },
+          author: { type: "string", example: "Alumni Office" },
+        },
+      },
+      AnnouncementPatch: {
+        type: "object",
+        properties: {
+          title: { type: "string", example: "Alumni reunion" },
+          content: { type: "string", example: "Join us on campus on 12 June 2027." },
+          author: { type: "string", example: "Alumni Office" },
+        },
       },
     },
   },

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 // Route: "/"  (file: app/page.tsx)
 // Temporary homepage — will be replaced later in the course.
 export default function HomePage() {
@@ -7,6 +9,14 @@ export default function HomePage() {
       <p className="text-lg text-gray-600">
         Keeping Istanbul University connected with its graduates.
       </p>
+      <nav className="flex gap-6">
+        <Link href="/users" className="text-blue-600 hover:underline">
+          Users
+        </Link>
+        <Link href="/announcements" className="text-blue-600 hover:underline">
+          Announcements
+        </Link>
+      </nav>
     </main>
   );
 }
