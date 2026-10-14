@@ -11,3 +11,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # API routes
 
 Before adding or changing any API route under `app/api/`, read the "📘 API Documentation" section in `README.md`. Every API route change must be reflected in the Swagger/OpenAPI spec at `lib/openapi.ts` in the same commit.
+
+The same applies to page routes (`app/users/`, `app/announcements/` and any new page route): when a page route is added, renamed or removed, update `lib/openapi.ts` and the route tables in `README.md` in the same commit.
+
+# Data layer
+
+Whenever a change touches the data layer — migrations, models (`lib/models/`), tables or columns, factories, the seed, relationships, or validation rules — update `ddd.md` in the same piece of work, along with the matching parts of `README.md`. Every new migration must also be reflected in the "🧱 Migrations" section of `README.md`.

@@ -1,12 +1,14 @@
-// User Controller for the JSON API side (what the /api/users routes will use).
+// User Controller for the JSON API side (used by the /api/users routes).
 // Each function takes the Request (and the route params where needed), calls the User Model,
 // and returns a NextResponse.json() with the right status code.
-// It never stores data itself; all data access goes through lib/models/user.ts.
+// It never stores data itself; all data access goes through lib/models/user.ts (PostgreSQL).
+// Database errors are turned into a 400 (bad data) or a generic 500 by withDatabaseErrors.
 
 import { NextResponse } from "next/server";
 import * as UserModel from "@/lib/models/user";
 import type { UserData } from "@/lib/models/user";
-import { NAME_REQUIRED, notFoundMessage, validateName } from "./UserController";
+import { withDatabaseErrors } from "./databaseErrors";
+import { AGE_INVALID, NAME_REQUIRED, notFoundMessage, validateAge, validateName } from "./UserController";
 
 // The second argument Next.js passes to a route handler under app/api/users/[id]/
 type IdParams = { params: Promise<{ id: string }> };
@@ -38,69 +40,75 @@ async function readFormFields(request: Request): Promise<Record<string, string> 
   return fields;
 }
 
-// POST /api/users: creates a user from form-data. "name" is required, any other fields
-// are stored as sent. 201 with the new user, or 400 if the body isn't form-data or "name" is missing.
-export async function create(request: Request) {
+// POST /api/users: creates a user from form-data. "name" is required, "age" (if sent) must be a
+// whole number, any other fields are stored as sent. 201 with the new user, or 400 if the body isn't
+// form-data, "name" is missing or "age" is invalid.
+export const create = withDatabaseErrors(async (request: Request) => {
   const fields = await readFormFields(request);
   if (fields === null) return jsonError(NOT_FORM_DATA, 400);
   if (validateName(fields, true)) return jsonError(NAME_REQUIRED, 400);
+  if (validateAge(fields)) return jsonError(AGE_INVALID, 400);
 
-  const user = UserModel.createUser(fields as UserData);
+  const user = await UserModel.createUser(fields as UserData);
   return NextResponse.json(user, { status: 201 });
-}
+});
 
 // GET /api/users: returns every user (an empty array if there are none). 200.
-export function getAll() {
-  return NextResponse.json(UserModel.getAllUsers());
-}
+export const getAll = withDatabaseErrors(async () => {
+  return NextResponse.json(await UserModel.getAllUsers());
+});
 
 // GET /api/users/{id}: returns the user (200), or 404.
-export async function getById(_request: Request, { params }: IdParams) {
+export const getById = withDatabaseErrors(async (_request: Request, { params }: IdParams) => {
   const { id } = await params;
-  const user = UserModel.getUserById(Number(id));
+  const user = await UserModel.getUserById(Number(id));
   if (!user) return jsonError(notFoundMessage(id), 404);
 
   return NextResponse.json(user);
-}
+});
 
 // PUT /api/users/{id}: replaces the whole user with the form-data sent, keeping the id.
-// 200 with the updated user, 404 if it doesn't exist, 400 if the body isn't form-data or "name" is missing.
-export async function replace(request: Request, { params }: IdParams) {
+// 200 with the updated user, 404 if it doesn't exist, 400 if the body isn't form-data,
+// "name" is missing or "age" is invalid.
+export const replace = withDatabaseErrors(async (request: Request, { params }: IdParams) => {
   const { id } = await params;
-  if (!UserModel.getUserById(Number(id))) return jsonError(notFoundMessage(id), 404);
+  if (!(await UserModel.getUserById(Number(id)))) return jsonError(notFoundMessage(id), 404);
 
   const fields = await readFormFields(request);
   if (fields === null) return jsonError(NOT_FORM_DATA, 400);
   if (validateName(fields, true)) return jsonError(NAME_REQUIRED, 400);
+  if (validateAge(fields)) return jsonError(AGE_INVALID, 400);
 
-  const user = UserModel.replaceUser(Number(id), fields as UserData);
+  const user = await UserModel.replaceUser(Number(id), fields as UserData);
   if (!user) return jsonError(notFoundMessage(id), 404);
   return NextResponse.json(user);
-}
+});
 
 // PATCH /api/users/{id}: changes only the fields sent and keeps the rest.
-// 200 with the updated user, 404 if it doesn't exist, 400 if the body isn't form-data or "name" is blank.
-export async function update(request: Request, { params }: IdParams) {
+// 200 with the updated user, 404 if it doesn't exist, 400 if the body isn't form-data,
+// "name" is blank or "age" is invalid.
+export const update = withDatabaseErrors(async (request: Request, { params }: IdParams) => {
   const { id } = await params;
-  if (!UserModel.getUserById(Number(id))) return jsonError(notFoundMessage(id), 404);
+  if (!(await UserModel.getUserById(Number(id)))) return jsonError(notFoundMessage(id), 404);
 
   const fields = await readFormFields(request);
   if (fields === null) return jsonError(NOT_FORM_DATA, 400);
   if (validateName(fields, false)) return jsonError(NAME_REQUIRED, 400);
+  if (validateAge(fields)) return jsonError(AGE_INVALID, 400);
 
-  const user = UserModel.updateUser(Number(id), fields);
+  const user = await UserModel.updateUser(Number(id), fields);
   if (!user) return jsonError(notFoundMessage(id), 404);
   return NextResponse.json(user);
-}
+});
 
 // DELETE /api/users/{id}: removes the user. 200 with { message, id }, or 404.
-async function remove(_request: Request, { params }: IdParams) {
+const remove = withDatabaseErrors(async (_request: Request, { params }: IdParams) => {
   const { id } = await params;
   const numericId = Number(id);
-  if (!UserModel.deleteUser(numericId)) return jsonError(notFoundMessage(id), 404);
+  if (!(await UserModel.deleteUser(numericId))) return jsonError(notFoundMessage(id), 404);
 
   return NextResponse.json({ message: "User deleted", id: numericId });
-}
+});
 
 // "delete" is a reserved word, so the function is named remove and exported as delete:
 // callers use ApiUserController.delete(request, context).

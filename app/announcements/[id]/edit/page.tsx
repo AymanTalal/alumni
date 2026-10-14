@@ -15,7 +15,7 @@ export default async function EditAnnouncementPage({
   await connection();
 
   const { id } = await params;
-  const result = AnnouncementController.getById(id);
+  const result = await AnnouncementController.getById(id);
 
   // Unknown or invalid id → 404 status and the "Announcement not found" page in ../not-found.tsx
   if ("error" in result) notFound();

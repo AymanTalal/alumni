@@ -28,7 +28,7 @@ export async function createUserAction(
     age: field(formData, "age"),
   };
 
-  const result = UserController.create(values);
+  const result = await UserController.create(values);
 
   // Validation failed (e.g. "name" missing): show the error and keep what was typed
   if ("error" in result) {
@@ -60,7 +60,7 @@ export async function updateUserAction(
     age: text(formData, "age"),
   };
 
-  const result = UserController.update(userId, values);
+  const result = await UserController.update(userId, values);
 
   // Validation failed or the user no longer exists: show the error and keep what was typed
   if ("error" in result) {
@@ -76,7 +76,7 @@ export async function updateUserAction(
 // Delete (the "Delete" buttons on /users and /users/{id}). userId is bound by the button.
 // (The form also passes the previous state and the form data, but delete doesn't need them.)
 export async function deleteUserAction(userId: number): Promise<DeleteUserState> {
-  const result = UserController.delete(userId);
+  const result = await UserController.delete(userId);
 
   // The user doesn't exist (e.g. already deleted elsewhere): show a message next to the button
   if ("error" in result) {

@@ -44,7 +44,7 @@ export default function UserListView({ users, deleteAction }: Props) {
             <td className="py-2 pr-4">{user.name}</td>
             {COLUMNS.map((column) => (
               <td key={column} className="py-2 pr-4">
-                {user[column] || "—"}
+                {user[column] === undefined || user[column] === "" ? "—" : user[column]}
               </td>
             ))}
             <td className="py-2 pr-4">

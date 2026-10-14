@@ -3,3 +3,8 @@ node_modules
 .next/
 *.tsbuildinfo
 .DS_Store
+
+# env files (local secrets); .env.example is the committed template
+.env
+.env.*
+!.env.example

@@ -13,7 +13,7 @@ export default async function EditUserPage({ params }: PageProps<"/users/[id]/ed
   await connection();
 
   const { id } = await params;
-  const result = UserController.getById(id);
+  const result = await UserController.getById(id);
 
   // Unknown id → 404 status and the "User not found" page in ../not-found.tsx
   if ("error" in result) notFound();

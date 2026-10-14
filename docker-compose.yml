@@ -1,0 +1,81 @@
+# Starts the whole system with one command: docker compose up --build
+#   db      → a PostgreSQL database on localhost:5432
+#   migrate → runs the SQL migrations in migrations/ once the database is healthy, then exits
+#   app     → the Next.js app (API + pages) on http://localhost:3000, started after migrate succeeds
+#   seed    → (only with the "seed" profile) fills the database with sample data, then exits:
+#             docker compose --profile seed run --rm seed
+#
+# The app still keeps users and announcements in its own memory (no volume for the app),
+# so that data is lost whenever the app container is removed (see "The Forgetting Test" in README.md).
+# The database keeps its files in the "pgdata" volume, so they survive `docker compose down`.
+# The migrate service creates the tables, but the app doesn't use the database yet; that comes in the next step.
+#
+# The ${VAR:-default} values below are local development defaults. To change them, copy
+# .env.example to .env (docker compose reads .env automatically). Never use them in production.
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # "db" is the database service's name, which Docker's network resolves to its container
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alumni}:${POSTGRES_PASSWORD:-alumni_dev_password}@db:5432/${POSTGRES_DB:-alumni}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Same image as the app; runs `npm run migrate` (scripts/migrate.mjs up) once and exits.
+  # Running it again is safe: already-applied migrations are skipped.
+  migrate:
+    build: .
+    command: ["npm", "run", "migrate"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alumni}:${POSTGRES_PASSWORD:-alumni_dev_password}@db:5432/${POSTGRES_DB:-alumni}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # Sample data for development. Not started by a plain `docker compose up` (it's in the "seed" profile).
+  #   docker compose --profile seed run --rm seed                        → seeds only if the tables are empty
+  #   docker compose --profile seed run --rm seed npm run seed:fresh     → deletes all users and announcements, then seeds
+  seed:
+    build: .
+    profiles: ["seed"]
+    command: ["npm", "run", "seed"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-alumni}:${POSTGRES_PASSWORD:-alumni_dev_password}@db:5432/${POSTGRES_DB:-alumni}
+      # The image sets NODE_ENV=production, and the seed refuses to run in production
+      NODE_ENV: development
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-alumni}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alumni_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-alumni}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Lets you connect from your machine with a database tool (host localhost, port 5432).
+    # Remove these two lines if port 5432 is already in use on your machine.
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  # Named volume for the database files. Kept by `docker compose down`;
+  # deleted only by `docker compose down -v`.
+  pgdata:

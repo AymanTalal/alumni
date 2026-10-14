@@ -35,7 +35,7 @@ export async function createAnnouncementAction(
     author: field(formData, "author"),
   };
 
-  const result = AnnouncementController.create(values);
+  const result = await AnnouncementController.create(values);
 
   // Validation failed (e.g. "title" or "content" missing): show the error and keep what was typed
   if ("error" in result) {
@@ -63,7 +63,7 @@ export async function updateAnnouncementAction(
     author: text(formData, "author"),
   };
 
-  const result = AnnouncementController.update(announcementId, values);
+  const result = await AnnouncementController.update(announcementId, values);
 
   // Validation failed or the announcement no longer exists: show the error and keep what was typed
   if ("error" in result) {
@@ -82,7 +82,7 @@ export async function updateAnnouncementAction(
 export async function deleteAnnouncementAction(
   announcementId: number,
 ): Promise<DeleteAnnouncementState> {
-  const result = AnnouncementController.delete(announcementId);
+  const result = await AnnouncementController.delete(announcementId);
 
   // The announcement doesn't exist (e.g. already deleted elsewhere): show a message by the button
   if ("error" in result) {

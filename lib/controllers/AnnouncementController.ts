@@ -1,7 +1,7 @@
 // Announcement Controller for the page (view) side, e.g. a future announcements list or detail page.
 // No Request / NextResponse here: functions take plain arguments, call the Announcement Model,
 // and return plain result objects ({ announcement } or { error }) that a page.tsx can render.
-// It never stores data itself; all data access goes through lib/models/announcement.ts.
+// It never stores data itself; all data access goes through lib/models/announcement.ts (PostgreSQL).
 
 import * as AnnouncementModel from "@/lib/models/announcement";
 import type {
@@ -9,6 +9,7 @@ import type {
   AnnouncementData,
   PartialAnnouncementData,
 } from "@/lib/models/announcement";
+import { clientMessageFor, PAGE_ERROR } from "./databaseErrors";
 
 export type AnnouncementResult = { announcement: Announcement } | { error: string };
 export type AnnouncementsResult = { announcements: Announcement[] };
@@ -49,54 +50,70 @@ export function parseId(id: number | string): number | null {
   return /^\d+$/.test(id) ? Number(id) : null;
 }
 
+// Runs a database call; a database error becomes an { error } result the page can show
+// (a clear message if the data caused it, a friendly generic one otherwise).
+async function safely<T>(action: () => Promise<T>): Promise<T | { error: string }> {
+  try {
+    return await action();
+  } catch (error) {
+    return { error: clientMessageFor(error) ?? PAGE_ERROR };
+  }
+}
+
 // Creates an announcement. Returns { announcement } on success,
-// or { error } if "title" or "content" is missing or blank.
-export function create(data: Partial<AnnouncementData>): AnnouncementResult {
+// or { error } if "title" or "content" is missing or blank, or saving failed.
+export async function create(data: Partial<AnnouncementData>): Promise<AnnouncementResult> {
   const error = validateAnnouncement(data, true);
   if (error) return { error };
 
-  return { announcement: AnnouncementModel.createAnnouncement(data as AnnouncementData) };
+  return safely(async () => ({
+    announcement: await AnnouncementModel.createAnnouncement(data as AnnouncementData),
+  }));
 }
 
-// Returns every announcement, newest first.
-export function getAll(): AnnouncementsResult {
-  return { announcements: AnnouncementModel.getAllAnnouncements() };
+// Returns every announcement, newest first. (A database error here is shown by Next.js's error page.)
+export async function getAll(): Promise<AnnouncementsResult> {
+  return { announcements: await AnnouncementModel.getAllAnnouncements() };
 }
 
 // Returns { announcement } for this id, or { error } if the id is invalid or there is none.
-export function getById(id: number | string): AnnouncementResult {
+export async function getById(id: number | string): Promise<AnnouncementResult> {
   const numericId = parseId(id);
   if (numericId === null) return { error: invalidIdMessage(id) };
 
-  const announcement = AnnouncementModel.getAnnouncementById(numericId);
+  const announcement = await AnnouncementModel.getAnnouncementById(numericId);
   return announcement ? { announcement } : { error: notFoundMessage(id) };
 }
 
 // Changes only the given fields. Returns { announcement } on success, or { error } if the id
-// is invalid, the announcement doesn't exist, or "title" / "content" is given but blank.
-export function update(
+// is invalid, the announcement doesn't exist, "title" / "content" is given but blank, or saving failed.
+export async function update(
   id: number | string,
   partialData: PartialAnnouncementData,
-): AnnouncementResult {
+): Promise<AnnouncementResult> {
   const numericId = parseId(id);
   if (numericId === null) return { error: invalidIdMessage(id) };
 
   const error = validateAnnouncement(partialData, false);
   if (error) return { error };
 
-  const announcement = AnnouncementModel.updateAnnouncement(numericId, partialData);
-  return announcement ? { announcement } : { error: notFoundMessage(id) };
+  return safely(async () => {
+    const announcement = await AnnouncementModel.updateAnnouncement(numericId, partialData);
+    return announcement ? { announcement } : { error: notFoundMessage(id) };
+  });
 }
 
 // Deletes the announcement. Returns { id } on success,
-// or { error } if the id is invalid or there is none.
-function remove(id: number | string): DeleteResult {
+// or { error } if the id is invalid, there is none, or deleting failed.
+async function remove(id: number | string): Promise<DeleteResult> {
   const numericId = parseId(id);
   if (numericId === null) return { error: invalidIdMessage(id) };
 
-  return AnnouncementModel.deleteAnnouncement(numericId)
-    ? { id: numericId }
-    : { error: notFoundMessage(id) };
+  return safely(async () =>
+    (await AnnouncementModel.deleteAnnouncement(numericId))
+      ? { id: numericId }
+      : { error: notFoundMessage(id) },
+  );
 }
 
 // "delete" is a reserved word, so the function is named remove and exported as delete:

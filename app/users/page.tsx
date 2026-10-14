@@ -14,7 +14,7 @@ export default async function UsersPage() {
   // (otherwise Next.js could render this page once at build time, when the list is empty)
   await connection();
 
-  const { users } = UserController.getAll();
+  const { users } = await UserController.getAll();
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">

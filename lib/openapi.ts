@@ -80,7 +80,22 @@ const htmlResponse = (description: string) => ({
   content: { "text/html": { schema: { type: "string" } } },
 });
 
+// 500 for the JSON API: a database problem that wasn't caused by the sent data (e.g. the database is
+// down). The real error is logged on the server; the client only gets this generic message.
+const serverError = {
+  description: "Unexpected database error (e.g. the database is unreachable). Details are logged on the server only.",
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/Error" },
+      example: { error: "Internal server error" },
+    },
+  },
+};
+
 const NOT_FORM_DATA = "Request body must be form-data";
+const AGE_INVALID = '"age" must be a whole number (0 or more)';
+// Example of a value PostgreSQL itself rejects (e.g. an age larger than an integer column allows)
+const DB_REJECTED = "A number is out of range";
 const NAME_REQUIRED = '"name" is required and must be a non-empty string';
 
 // ---- Announcements ----
@@ -125,8 +140,9 @@ export const openApiSpec = {
     version: "0.1.0",
     description:
       "API for the Alumni Tracking System (YBSB3001 Web Programming). " +
-      "Users and announcements are stored in memory for now and are lost when the server " +
-      "restarts. The API and the HTML pages share the same data: a user created with " +
+      "Users and announcements are stored in PostgreSQL (plain SQL, no ORM), so they survive " +
+      "restarts; ids and timestamps are assigned by the database. The API and the HTML pages " +
+      "share the same data: a user created with " +
       "POST /api/users appears at /users, and an announcement created with " +
       "POST /api/announcements appears at /announcements.",
   },
@@ -176,7 +192,8 @@ export const openApiSpec = {
         tags: ["API Users"],
         operationId: "listUsers",
         summary: "List all users",
-        description: "Returns every user added so far, or an empty array if there are none.",
+        description:
+          "Returns every user in the database, oldest first, or an empty array if there are none.",
         responses: {
           200: {
             description: "Array of users",
@@ -185,11 +202,12 @@ export const openApiSpec = {
                 schema: { type: "array", items: { $ref: "#/components/schemas/User" } },
                 example: [
                   { id: 1, name: "Ayman", email: "ayman@example.com" },
-                  { id: 2, name: "Elif", department: "MIS", age: "23" },
+                  { id: 2, name: "Elif", department: "MIS", age: 23, city: "Istanbul" },
                 ],
               },
             },
           },
+          500: serverError,
         },
       },
       post: {
@@ -197,9 +215,11 @@ export const openApiSpec = {
         operationId: "createUser",
         summary: "Create a user",
         description:
-          "Send form-data. Only `name` is required; every other text field you send " +
-          "is stored as-is (as a string). The server assigns the `id`: an `id` field in the " +
-          "body is ignored, and so are uploaded files.",
+          "Send form-data. Only `name` is required. `email`, `age` and `department` are stored " +
+          "in their own columns (`age` must be a whole number, and is returned as a number); every " +
+          "other text field is stored as-is in the `extra` jsonb column and returned alongside the " +
+          "others. The database assigns the `id`: an `id` field in the body is ignored, and so " +
+          "are uploaded files.",
         requestBody: {
           required: true,
           content: {
@@ -218,7 +238,10 @@ export const openApiSpec = {
           400: badRequest({
             "Body is not form-data": NOT_FORM_DATA,
             "name missing or blank": NAME_REQUIRED,
+            "age is not a whole number": AGE_INVALID,
+            "value rejected by the database": DB_REJECTED,
           }),
+          500: serverError,
         },
       },
     },
@@ -231,6 +254,7 @@ export const openApiSpec = {
         responses: {
           200: userResponse("The user", { id: 1, name: "Ayman", email: "ayman@example.com" }),
           404: notFound,
+          500: serverError,
         },
       },
       put: {
@@ -238,8 +262,9 @@ export const openApiSpec = {
         operationId: "replaceUser",
         summary: "Replace a user",
         description:
-          "Replaces the whole user with the form-data sent. Fields not sent are removed. " +
-          "`name` is required. The `id` never changes.",
+          "Replaces the whole user with the form-data sent. Fields not sent are removed (columns " +
+          "become empty, `extra` is replaced). `name` is required, `age` must be a whole number. " +
+          "The `id` never changes.",
         requestBody: {
           required: true,
           content: {
@@ -253,8 +278,11 @@ export const openApiSpec = {
           400: badRequest({
             "Body is not form-data": NOT_FORM_DATA,
             "name missing or blank": NAME_REQUIRED,
+            "age is not a whole number": AGE_INVALID,
+            "value rejected by the database": DB_REJECTED,
           }),
           404: notFound,
+          500: serverError,
         },
       },
       patch: {
@@ -262,8 +290,8 @@ export const openApiSpec = {
         operationId: "updateUser",
         summary: "Update some fields of a user",
         description:
-          "Changes only the fields sent and keeps all other fields. `name` is optional, " +
-          "but can't be blank if sent.",
+          "Changes only the fields sent and keeps all other fields (extra fields are merged into " +
+          "`extra`). `name` is optional, but can't be blank if sent; `age` must be a whole number.",
         requestBody: {
           required: true,
           content: {
@@ -282,8 +310,11 @@ export const openApiSpec = {
           400: badRequest({
             "Body is not form-data": NOT_FORM_DATA,
             "name sent but blank": NAME_REQUIRED,
+            "age is not a whole number": AGE_INVALID,
+            "value rejected by the database": DB_REJECTED,
           }),
           404: notFound,
+          500: serverError,
         },
       },
       delete: {
@@ -307,6 +338,7 @@ export const openApiSpec = {
             },
           },
           404: notFound,
+          500: serverError,
         },
       },
     },
@@ -424,6 +456,7 @@ export const openApiSpec = {
               },
             },
           },
+          500: serverError,
         },
       },
       post: {
@@ -431,7 +464,7 @@ export const openApiSpec = {
         operationId: "createAnnouncement",
         summary: "Create an announcement",
         description:
-          "Send form-data. `title` and `content` are required, `author` is optional. The server " +
+          "Send form-data. `title` and `content` are required, `author` is optional. The database " +
           "assigns the `id` and sets `createdAt` and `updatedAt`; any other fields are ignored.",
         requestBody: {
           required: true,
@@ -448,6 +481,7 @@ export const openApiSpec = {
             "title missing or blank": TITLE_REQUIRED,
             "content missing or blank": CONTENT_REQUIRED,
           }),
+          500: serverError,
         },
       },
     },
@@ -461,6 +495,7 @@ export const openApiSpec = {
           200: announcementResponse("The announcement", exampleAnnouncement),
           400: badRequest({ "id is not a whole number": INVALID_ANNOUNCEMENT_ID }),
           404: announcementNotFound,
+          500: serverError,
         },
       },
       put: {
@@ -494,6 +529,7 @@ export const openApiSpec = {
             "content missing or blank": CONTENT_REQUIRED,
           }),
           404: announcementNotFound,
+          500: serverError,
         },
       },
       patch: {
@@ -524,6 +560,7 @@ export const openApiSpec = {
             "content sent but blank": CONTENT_REQUIRED,
           }),
           404: announcementNotFound,
+          500: serverError,
         },
       },
       delete: {
@@ -548,6 +585,7 @@ export const openApiSpec = {
           },
           400: badRequest({ "id is not a whole number": INVALID_ANNOUNCEMENT_ID }),
           404: announcementNotFound,
+          500: serverError,
         },
       },
     },
@@ -660,9 +698,14 @@ export const openApiSpec = {
         properties: {
           id: { type: "integer", example: 1 },
           name: { type: "string", example: "Ayman" },
+          email: { type: "string", example: "ayman@example.com" },
+          age: { type: "integer", minimum: 0, example: 22 },
+          department: { type: "string", example: "MIS" },
         },
         additionalProperties: { type: "string" },
-        description: "Any other fields sent when the user was created are included as strings.",
+        description:
+          "`email`, `age` (an integer) and `department` are included when they have a value; any " +
+          "other (dynamic) fields, stored in the `extra` jsonb column, are included as strings.",
       },
       UserInput: {
         type: "object",
@@ -670,7 +713,7 @@ export const openApiSpec = {
         properties: {
           name: { type: "string", example: "Ayman" },
           email: { type: "string", example: "ayman@example.com" },
-          age: { type: "string", example: "22" },
+          age: { type: "string", description: "A whole number (0 or more)", example: "22" },
           department: { type: "string", example: "MIS" },
         },
         additionalProperties: { type: "string" },
@@ -680,7 +723,7 @@ export const openApiSpec = {
         properties: {
           name: { type: "string", example: "Ayman" },
           email: { type: "string", example: "ayman@example.com" },
-          age: { type: "string", example: "23" },
+          age: { type: "string", description: "A whole number (0 or more)", example: "23" },
           department: { type: "string", example: "MIS" },
         },
         additionalProperties: { type: "string" },
