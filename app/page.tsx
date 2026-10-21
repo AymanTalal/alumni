@@ -16,6 +16,9 @@ export default function HomePage() {
         <Link href="/announcements" className="text-blue-600 hover:underline">
           Announcements
         </Link>
+        <Link href="/jobs" className="text-blue-600 hover:underline">
+          Jobs
+        </Link>
       </nav>
     </main>
   );

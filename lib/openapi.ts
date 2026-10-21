@@ -133,6 +133,124 @@ const TITLE_REQUIRED = '"title" is required and must be a non-empty string';
 const CONTENT_REQUIRED = '"content" is required and must be a non-empty string';
 const INVALID_ANNOUNCEMENT_ID = 'Announcement id "abc" is not a valid number';
 
+// ---- Job postings ----
+
+// {id} in /api/jobs/{id}: the job posting's own id
+const jobIdParam = {
+  name: "id",
+  in: "path",
+  required: true,
+  description: "The job posting's id (a whole number; anything else returns 400)",
+  schema: { type: "integer", example: 1 },
+};
+
+const exampleJobPosting = {
+  id: 1,
+  title: "Junior Developer",
+  company: "Acme",
+  createdAt: "2026-10-21T09:30:00.000Z",
+  updatedAt: "2026-10-21T09:30:00.000Z",
+};
+
+const jobPostingResponse = (description: string, example: object) => ({
+  description,
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/JobPosting" },
+      example,
+    },
+  },
+});
+
+// A job posting body can be sent as JSON or as form-data (so Postman works either way)
+const jobPostingBody = (schemaName: string, example: object) => ({
+  required: true,
+  content: {
+    "application/json": { schema: { $ref: `#/components/schemas/${schemaName}` }, example },
+    "multipart/form-data": { schema: { $ref: `#/components/schemas/${schemaName}` } },
+  },
+});
+
+const JOB_POSTING_NOT_FOUND = "Job posting not found";
+const BAD_BODY = "Request body must be JSON (application/json) or form-data";
+const jobPostingNotFound = jsonError(JOB_POSTING_NOT_FOUND);
+
+// ---- Applications ----
+
+// {id} in /api/applications/{id}: the application's own id
+const applicationIdParam = {
+  name: "id",
+  in: "path",
+  required: true,
+  description: "The application's id (a whole number; anything else returns 400)",
+  schema: { type: "integer", example: 1 },
+};
+
+// {id} in the nested routes: the PARENT's id, taken from the URL
+const applicationJobIdParam = {
+  ...jobIdParam,
+  description:
+    "The job posting's id (a whole number; anything else returns 400). The application's job " +
+    "posting comes only from here.",
+};
+const applicationUserIdParam = {
+  name: "id",
+  in: "path",
+  required: true,
+  description: "The user's id (a whole number; anything else returns 400)",
+  schema: { type: "integer", example: 3 },
+};
+
+const APPLICATION_STATUSES = ["pending", "accepted", "rejected"];
+
+const exampleApplication = {
+  id: 1,
+  userId: 3,
+  jobPostingId: 1,
+  status: "pending",
+  createdAt: "2026-10-21T11:00:00.000Z",
+  updatedAt: "2026-10-21T11:00:00.000Z",
+};
+
+const applicationResponse = (description: string, example: object) => ({
+  description,
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/Application" },
+      example,
+    },
+  },
+});
+
+const applicationListResponse = (description: string, example: object[]) => ({
+  description,
+  content: {
+    "application/json": {
+      schema: { type: "array", items: { $ref: "#/components/schemas/Application" } },
+      example,
+    },
+  },
+});
+
+// An application body can be sent as JSON or as form-data (so Postman works either way)
+const applicationBody = (schemaName: string, example: object) => ({
+  required: true,
+  content: {
+    "application/json": { schema: { $ref: `#/components/schemas/${schemaName}` }, example },
+    "multipart/form-data": { schema: { $ref: `#/components/schemas/${schemaName}` } },
+  },
+});
+
+const BAD_STATUS = '"status" must be one of: pending, accepted, rejected';
+const applicationNotFound = jsonError("Application not found");
+const userNotFoundForApplication = jsonError("User not found");
+const alreadyApplied = {
+  ...jsonError("User already applied to this job posting"),
+  description:
+    "This user already applied to this job posting (one application per user and posting; the " +
+    "database's unique rule rejects the second one, even when two requests arrive at once)",
+};
+
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
@@ -144,7 +262,9 @@ export const openApiSpec = {
       "restarts; ids and timestamps are assigned by the database. The API and the HTML pages " +
       "share the same data: a user created with " +
       "POST /api/users appears at /users, and an announcement created with " +
-      "POST /api/announcements appears at /announcements.",
+      "POST /api/announcements appears at /announcements. Job postings have no owner: they are " +
+      "created with POST /api/jobs, and users are linked to postings only through applications " +
+      "(POST /api/jobs/{id}/applications).",
   },
   tags: [
     { name: "Health", description: "Server status" },
@@ -163,6 +283,23 @@ export const openApiSpec = {
       description:
         "HTML pages and browser forms that list, create, edit and delete the same announcements " +
         "as the API",
+    },
+    {
+      name: "API Job Postings",
+      description:
+        "JSON API for job postings. Job postings have no owner: create one with POST /api/jobs, " +
+        "list them with GET /api/jobs, and read, update or delete one with /api/jobs/{id}. Users " +
+        "and job postings are linked only through applications (see API Applications).",
+    },
+    {
+      name: "API Applications",
+      description:
+        "JSON API for applications: the join between users and job postings (many-to-many). A " +
+        "user applies with the nested route POST /api/jobs/{id}/applications (the posting comes " +
+        "from the URL); a posting's applications are at GET /api/jobs/{id}/applications and a " +
+        "user's at GET /api/users/{id}/applications. Read, change the status of, or delete one " +
+        "application with /api/applications/{id}. Deleting a user or a job posting also deletes " +
+        "its applications (ON DELETE CASCADE).",
     },
   ],
   paths: {
@@ -689,6 +826,252 @@ export const openApiSpec = {
         responses: serverActionResponses,
       },
     },
+    "/api/jobs": {
+      get: {
+        tags: ["API Job Postings"],
+        operationId: "listJobPostings",
+        summary: "List all job postings",
+        description:
+          "Returns every job posting, newest first, or an empty array if there are none.",
+        responses: {
+          200: {
+            description: "Array of job postings, newest first",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/JobPosting" } },
+                example: [
+                  { ...exampleJobPosting, id: 2, title: "Data Analyst", company: "Trendyol" },
+                  exampleJobPosting,
+                ],
+              },
+            },
+          },
+          500: serverError,
+        },
+      },
+      post: {
+        tags: ["API Job Postings"],
+        operationId: "createJobPosting",
+        summary: "Create a job posting",
+        description:
+          "Creates a job posting from the body (JSON or form-data). Only `title` and `company` are " +
+          "read; any other field in the body (an id, a user id, timestamps, …) is ignored, because " +
+          "the database assigns the `id` and timestamps and a posting has **no owner**. `title` is trimmed and " +
+          "required (1–200 characters); `company` is optional, trimmed, at most 200 characters " +
+          "(empty → no company).",
+        requestBody: jobPostingBody("JobPostingInput", { title: "Junior Developer", company: "Acme" }),
+        responses: {
+          201: jobPostingResponse("Job posting created", exampleJobPosting),
+          400: badRequest({
+            "title missing": '"title" is required',
+            "title empty": '"title" can\'t be empty',
+            "title too long": '"title" can be at most 200 characters',
+            "company too long": '"company" can be at most 200 characters',
+            "body is not JSON or form-data": BAD_BODY,
+          }),
+          500: serverError,
+        },
+      },
+    },
+    "/api/jobs/{id}": {
+      parameters: [jobIdParam],
+      get: {
+        tags: ["API Job Postings"],
+        operationId: "getJobPosting",
+        summary: "Get one job posting",
+        responses: {
+          200: jobPostingResponse("The job posting", exampleJobPosting),
+          400: badRequest({ "id is not a whole number": 'Job posting id "abc" is not a valid number' }),
+          404: jobPostingNotFound,
+          500: serverError,
+        },
+      },
+      patch: {
+        tags: ["API Job Postings"],
+        operationId: "updateJobPosting",
+        summary: "Update some fields of a job posting",
+        description:
+          "Changes only the fields sent (`title` and/or `company`, as JSON or form-data) and keeps " +
+          "the rest; `updatedAt` is set to now. Any other field in the body is ignored. A `title` " +
+          "that is sent can't be empty; an empty `company` removes it.",
+        requestBody: jobPostingBody("JobPostingPatch", { company: "Acme Corp" }),
+        responses: {
+          200: jobPostingResponse("Updated job posting", {
+            ...exampleJobPosting,
+            company: "Acme Corp",
+            updatedAt: "2026-10-21T10:00:00.000Z",
+          }),
+          400: badRequest({
+            "title sent but empty": '"title" can\'t be empty',
+            "title too long": '"title" can be at most 200 characters',
+            "id is not a whole number": 'Job posting id "abc" is not a valid number',
+            "body is not JSON or form-data": BAD_BODY,
+          }),
+          404: jobPostingNotFound,
+          500: serverError,
+        },
+      },
+      delete: {
+        tags: ["API Job Postings"],
+        operationId: "deleteJobPosting",
+        summary: "Delete a job posting",
+        description: "Removes the job posting. On success the response is **204 No Content** (no body).",
+        responses: {
+          204: { description: "Job posting deleted (no response body)" },
+          400: badRequest({ "id is not a whole number": 'Job posting id "abc" is not a valid number' }),
+          404: jobPostingNotFound,
+          500: serverError,
+        },
+      },
+    },
+    "/api/jobs/{id}/applications": {
+      parameters: [applicationJobIdParam],
+      get: {
+        tags: ["API Applications"],
+        operationId: "listJobPostingApplications",
+        summary: "List the applications to a job posting",
+        description:
+          "Returns the applications to job posting `{id}` (its applicants), newest first. An " +
+          "existing posting with no applications gives **200** with an empty array; a posting " +
+          "that doesn't exist gives **404**.",
+        responses: {
+          200: applicationListResponse("Array of applications, newest first", [
+            { ...exampleApplication, id: 2, userId: 5, status: "accepted" },
+            exampleApplication,
+          ]),
+          400: badRequest({ "id is not a whole number": 'Job posting id "abc" is not a valid number' }),
+          404: jobPostingNotFound,
+          500: serverError,
+        },
+      },
+      post: {
+        tags: ["API Applications"],
+        operationId: "createApplication",
+        summary: "Apply to a job posting",
+        description:
+          "User `userId` applies to job posting `{id}`. Body (JSON or form-data): `userId` " +
+          "(required) and `status` (optional, `pending` if left out). **The job posting comes only " +
+          "from the URL:** a `jobPostingId` in the body is ignored, and so are `id`, `createdAt` and " +
+          "`updatedAt`. A user can apply to the same posting only once (**409** the second time).",
+        requestBody: applicationBody("ApplicationInput", { userId: 3 }),
+        responses: {
+          201: applicationResponse("Application created", exampleApplication),
+          400: badRequest({
+            "userId missing": '"userId" is required',
+            "userId is not a whole number": 'User id "abc" is not a valid number',
+            "posting id in the URL is not a whole number": 'Job posting id "abc" is not a valid number',
+            "status not allowed": BAD_STATUS,
+            "body is not JSON or form-data": BAD_BODY,
+          }),
+          404: {
+            description: "The user or the job posting doesn't exist",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Error" },
+                examples: {
+                  user_not_found: { summary: "user not found", value: { error: "User not found" } },
+                  job_posting_not_found: {
+                    summary: "job posting not found",
+                    value: { error: JOB_POSTING_NOT_FOUND },
+                  },
+                },
+              },
+            },
+          },
+          409: alreadyApplied,
+          500: serverError,
+        },
+      },
+    },
+    "/api/users/{id}/applications": {
+      parameters: [applicationUserIdParam],
+      get: {
+        tags: ["API Applications"],
+        operationId: "listUserApplications",
+        summary: "List a user's applications",
+        description:
+          "Returns user `{id}`'s applications (what they applied to), newest first. An existing " +
+          "user with no applications gives **200** with an empty array; a user that doesn't exist " +
+          "gives **404**.",
+        responses: {
+          200: applicationListResponse("Array of applications, newest first", [
+            { ...exampleApplication, id: 3, jobPostingId: 2 },
+            exampleApplication,
+          ]),
+          400: badRequest({ "id is not a whole number": 'User id "abc" is not a valid number' }),
+          404: userNotFoundForApplication,
+          500: serverError,
+        },
+      },
+    },
+    "/api/applications": {
+      get: {
+        tags: ["API Applications"],
+        operationId: "listApplications",
+        summary: "List all applications",
+        description:
+          "Returns every application, newest first, or an empty array if there are none. To " +
+          "create one, use POST /api/jobs/{id}/applications.",
+        responses: {
+          200: applicationListResponse("Array of applications, newest first", [
+            { ...exampleApplication, id: 2, userId: 5, status: "accepted" },
+            exampleApplication,
+          ]),
+          500: serverError,
+        },
+      },
+    },
+    "/api/applications/{id}": {
+      parameters: [applicationIdParam],
+      get: {
+        tags: ["API Applications"],
+        operationId: "getApplication",
+        summary: "Get one application",
+        responses: {
+          200: applicationResponse("The application", exampleApplication),
+          400: badRequest({ "id is not a whole number": 'Application id "abc" is not a valid number' }),
+          404: applicationNotFound,
+          500: serverError,
+        },
+      },
+      patch: {
+        tags: ["API Applications"],
+        operationId: "updateApplicationStatus",
+        summary: "Change the status of an application",
+        description:
+          "Changes **only** `status` (JSON or form-data) and sets `updatedAt` to now. `status` is " +
+          "required and must be exactly `pending`, `accepted` or `rejected`. Anything else in the " +
+          "body (`userId`, `jobPostingId`, `id`, …) is ignored: an application's user and job " +
+          "posting never change.",
+        requestBody: applicationBody("ApplicationStatusPatch", { status: "accepted" }),
+        responses: {
+          200: applicationResponse("Updated application", {
+            ...exampleApplication,
+            status: "accepted",
+            updatedAt: "2026-10-22T09:00:00.000Z",
+          }),
+          400: badRequest({
+            "status missing or not allowed": BAD_STATUS,
+            "id is not a whole number": 'Application id "abc" is not a valid number',
+            "body is not JSON or form-data": BAD_BODY,
+          }),
+          404: applicationNotFound,
+          500: serverError,
+        },
+      },
+      delete: {
+        tags: ["API Applications"],
+        operationId: "deleteApplication",
+        summary: "Delete an application",
+        description: "Removes the application. On success the response is **204 No Content** (no body).",
+        responses: {
+          204: { description: "Application deleted (no response body)" },
+          400: badRequest({ "id is not a whole number": 'Application id "abc" is not a valid number' }),
+          404: applicationNotFound,
+          500: serverError,
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -751,6 +1134,75 @@ export const openApiSpec = {
           title: { type: "string", example: "Alumni reunion" },
           content: { type: "string", example: "Join us on campus on 12 June 2027." },
           author: { type: "string", example: "Alumni Office" },
+        },
+      },
+      JobPosting: {
+        type: "object",
+        required: ["id", "title", "createdAt", "updatedAt"],
+        properties: {
+          id: { type: "integer", example: 1 },
+          title: { type: "string", example: "Junior Developer" },
+          company: { type: "string", description: "Left out when empty", example: "Acme" },
+          createdAt: { type: "string", format: "date-time", example: "2026-10-21T09:30:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2026-10-21T09:30:00.000Z" },
+        },
+      },
+      JobPostingInput: {
+        type: "object",
+        required: ["title"],
+        description: "Only title and company are read; job postings have no owner.",
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 200, example: "Junior Developer" },
+          company: { type: "string", maxLength: 200, example: "Acme" },
+        },
+      },
+      JobPostingPatch: {
+        type: "object",
+        description: "Any subset of title and company.",
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 200, example: "Senior Developer" },
+          company: { type: "string", maxLength: 200, example: "Acme Corp" },
+        },
+      },
+      ApplicationStatus: {
+        type: "string",
+        enum: APPLICATION_STATUSES,
+        description: "Where the application stands; a new application is `pending`",
+        example: "pending",
+      },
+      Application: {
+        type: "object",
+        required: ["id", "userId", "jobPostingId", "status", "createdAt", "updatedAt"],
+        properties: {
+          id: { type: "integer", example: 1 },
+          userId: { type: "integer", description: "The applicant (users.id)", example: 3 },
+          jobPostingId: {
+            type: "integer",
+            description: "The job posting applied to (job_postings.id)",
+            example: 1,
+          },
+          status: { $ref: "#/components/schemas/ApplicationStatus" },
+          createdAt: { type: "string", format: "date-time", example: "2026-10-21T11:00:00.000Z" },
+          updatedAt: { type: "string", format: "date-time", example: "2026-10-21T11:00:00.000Z" },
+        },
+      },
+      ApplicationInput: {
+        type: "object",
+        required: ["userId"],
+        description:
+          "Only userId and status are read; the job posting comes from the URL (a jobPostingId " +
+          "in the body is ignored).",
+        properties: {
+          userId: { type: "integer", minimum: 1, example: 3 },
+          status: { $ref: "#/components/schemas/ApplicationStatus" },
+        },
+      },
+      ApplicationStatusPatch: {
+        type: "object",
+        required: ["status"],
+        description: "Only status is read; userId, jobPostingId and id are ignored.",
+        properties: {
+          status: { $ref: "#/components/schemas/ApplicationStatus" },
         },
       },
       AnnouncementPatch: {

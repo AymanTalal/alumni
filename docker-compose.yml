@@ -41,7 +41,7 @@ services:
 
   # Sample data for development. Not started by a plain `docker compose up` (it's in the "seed" profile).
   #   docker compose --profile seed run --rm seed                        → seeds only if the tables are empty
-  #   docker compose --profile seed run --rm seed npm run seed:fresh     → deletes all users and announcements, then seeds
+  #   docker compose --profile seed run --rm seed npm run seed:fresh     → deletes all users, announcements and job postings, then seeds
   seed:
     build: .
     profiles: ["seed"]

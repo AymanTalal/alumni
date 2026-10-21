@@ -1,17 +1,26 @@
-// Seed script: fills the database with sample users and announcements built by the factories.
+// Seed script: fills the database with sample users, announcements and job postings built by the
+// factories.
 //
-//   node scripts/seed.mjs           (npm run seed)        seed only if both tables are empty
-//   node scripts/seed.mjs --fresh   (npm run seed:fresh)  delete all users and announcements, then seed
+//   node scripts/seed.mjs           (npm run seed)        seed users and announcements only if both
+//                                                         tables are empty, and job postings only if
+//                                                         job_postings is empty
+//   node scripts/seed.mjs --fresh   (npm run seed:fresh)  delete all users, announcements and job
+//                                                         postings (and so all applications), then seed
+//
+// Applications are not seeded. Job postings have no owner, so they are checked and cleared on their
+// own: deleting users doesn't remove them.
 //
 // Plain SQL through pg, no ORM. Every insert uses parameters ($1, $2, …), never string concatenation.
 // Connects with the DATABASE_URL environment variable (see .env.example). Refuses to run in production.
 
 import { makeAnnouncements, resetAnnouncementFactory } from "./factories/announcementFactory.mjs";
+import { makeJobPostings, resetJobPostingFactory } from "./factories/jobPostingFactory.mjs";
 import { makeUsers, resetUserFactory } from "./factories/userFactory.mjs";
 import { connect, fail, getDatabaseUrl } from "./lib/database.mjs";
 
 const USER_COUNT = 10;
 const ANNOUNCEMENT_COUNT = 8;
+const JOB_POSTING_COUNT = 10;
 
 // Inserts the users and returns how many were inserted
 async function insertUsers(client, users) {
@@ -41,6 +50,17 @@ async function insertAnnouncements(client, announcements) {
   return announcements.length;
 }
 
+// Inserts the job postings and returns how many were inserted
+async function insertJobPostings(client, jobPostings) {
+  for (const jobPosting of jobPostings) {
+    await client.query(
+      "INSERT INTO job_postings (title, company, created_at, updated_at) VALUES ($1, $2, $3, $4)",
+      [jobPosting.title, jobPosting.company, jobPosting.createdAt, jobPosting.updatedAt],
+    );
+  }
+  return jobPostings.length;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const unknown = args.filter((arg) => arg !== "--fresh");
@@ -53,7 +73,7 @@ async function main() {
   if (process.env.NODE_ENV === "production") {
     fail(
       "Refusing to seed: NODE_ENV is \"production\".\n" +
-        "  The seed inserts sample data and --fresh deletes all users and announcements,\n" +
+        "  The seed inserts sample data and --fresh deletes all users, announcements and job postings,\n" +
         "  so it only runs in development.",
     );
   }
@@ -63,47 +83,78 @@ async function main() {
   try {
     // The tables are created by the migrations; stop with a clear message if they're missing
     const { rows: tables } = await client.query(
-      "SELECT to_regclass('public.users') AS users, to_regclass('public.announcements') AS announcements",
+      "SELECT to_regclass('public.users') AS users, to_regclass('public.announcements') AS announcements, " +
+        "to_regclass('public.job_postings') AS job_postings",
     );
-    if (!tables[0].users || !tables[0].announcements) {
+    if (!tables[0].users || !tables[0].announcements || !tables[0].job_postings) {
       fail(
-        "The users and announcements tables don't exist yet.\n" +
+        "The users, announcements and job_postings tables don't exist yet.\n" +
           "  Run the migrations first: npm run migrate (or docker compose up, which runs them).",
       );
     }
 
     await client.query("BEGIN");
     try {
-      // Locks both tables until the end of the transaction, so two seeds can't run at the same time
-      await client.query("LOCK TABLE users, announcements IN EXCLUSIVE MODE");
+      // Locks the tables until the end of the transaction, so two seeds can't run at the same time
+      await client.query("LOCK TABLE users, announcements, job_postings IN EXCLUSIVE MODE");
+
+      // Which groups to seed: on --fresh everything; otherwise only what is still empty
+      let seedUsersAndAnnouncements = true;
+      let seedJobPostings = true;
 
       if (fresh) {
-        // Deletes every row in these two tables only, and restarts their ids at 1.
+        // Deletes every row in these three tables, and restarts their ids at 1. job_postings is listed
+        // itself because it no longer references users. CASCADE also empties applications, which
+        // references users and job_postings. One TRUNCATE handles all of them, so the order doesn't matter.
         // Never touches schema_migrations and never drops anything.
-        await client.query("TRUNCATE users, announcements RESTART IDENTITY CASCADE");
-        console.log("Deleted all users and announcements (--fresh).");
+        await client.query("TRUNCATE users, announcements, job_postings RESTART IDENTITY CASCADE");
+        console.log("Deleted all users, announcements and job postings, and so all applications (--fresh).");
       } else {
         const { rows } = await client.query(
-          "SELECT (SELECT count(*) FROM users)::int AS users, (SELECT count(*) FROM announcements)::int AS announcements",
+          "SELECT (SELECT count(*) FROM users)::int AS users, (SELECT count(*) FROM announcements)::int AS announcements, " +
+            "(SELECT count(*) FROM job_postings)::int AS job_postings",
         );
-        if (rows[0].users > 0 || rows[0].announcements > 0) {
+        const counts = rows[0];
+        // Users and announcements behave as before: skipped together if either table has rows.
+        // Job postings are skipped only if job_postings has rows.
+        seedUsersAndAnnouncements = counts.users === 0 && counts.announcements === 0;
+        seedJobPostings = counts.job_postings === 0;
+
+        if (!seedUsersAndAnnouncements && !seedJobPostings) {
           await client.query("ROLLBACK");
           console.log(
-            `✔ Already seeded (${rows[0].users} users, ${rows[0].announcements} announcements), ` +
-              "nothing changed. Use --fresh to reset (npm run seed:fresh).",
+            `✔ Already seeded (${counts.users} users, ${counts.announcements} announcements, ` +
+              `${counts.job_postings} job postings), nothing changed. Use --fresh to reset (npm run seed:fresh).`,
           );
           return;
         }
+        if (!seedUsersAndAnnouncements) {
+          console.log(
+            `Users and announcements already seeded (${counts.users} users, ${counts.announcements} announcements), skipped.`,
+          );
+        }
+        if (!seedJobPostings) {
+          console.log(`Job postings already seeded (${counts.job_postings} job postings), skipped.`);
+        }
       }
 
-      // Same data on every run: start both factories from their first value
-      resetUserFactory();
-      resetAnnouncementFactory();
-      const userCount = await insertUsers(client, makeUsers(USER_COUNT));
-      const announcementCount = await insertAnnouncements(client, makeAnnouncements(ANNOUNCEMENT_COUNT));
+      // Same data on every run: start the factories from their first value
+      const seeded = [];
+      if (seedUsersAndAnnouncements) {
+        resetUserFactory();
+        resetAnnouncementFactory();
+        const userCount = await insertUsers(client, makeUsers(USER_COUNT));
+        const announcementCount = await insertAnnouncements(client, makeAnnouncements(ANNOUNCEMENT_COUNT));
+        seeded.push(`${userCount} users`, `${announcementCount} announcements`);
+      }
+      if (seedJobPostings) {
+        resetJobPostingFactory();
+        const jobPostingCount = await insertJobPostings(client, makeJobPostings(JOB_POSTING_COUNT));
+        seeded.push(`${jobPostingCount} job postings`);
+      }
 
       await client.query("COMMIT");
-      console.log(`✔ Seeded ${userCount} users and ${announcementCount} announcements.`);
+      console.log(`✔ Seeded ${seeded.join(", ")}.`);
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
