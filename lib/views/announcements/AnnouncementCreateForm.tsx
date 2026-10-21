@@ -1,6 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
+import { Button } from "../ui/Button";
+import Card from "../ui/Card";
+import { Field, FormMessage, Input, Textarea } from "../ui/Field";
 
 // View: the "Add an announcement" form. Markup and styling only, no data logic: submitting it
 // runs the Server Action passed in as `action`, and the form shows whatever result that action
@@ -22,47 +25,29 @@ export default function AnnouncementCreateForm({ action }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
 
   return (
-    <form action={formAction} className="mt-6 flex flex-col gap-3 rounded border border-gray-300 p-4">
-      <h2 className="text-xl font-semibold">Add an announcement</h2>
+    <Card className="mb-8">
+      <form action={formAction} className="flex flex-col gap-5">
+        <h2 className="text-lg font-semibold text-ink">Add an announcement</h2>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Title *</span>
-        <input
-          name="title"
-          defaultValue={state.values?.title}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        <Field label="Title" required>
+          <Input name="title" defaultValue={state.values?.title} />
+        </Field>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Content *</span>
-        <textarea
-          name="content"
-          rows={4}
-          defaultValue={state.values?.content}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        <Field label="Content" required>
+          <Textarea name="content" rows={4} defaultValue={state.values?.content} />
+        </Field>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Author</span>
-        <input
-          name="author"
-          defaultValue={state.values?.author}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        <Field label="Author">
+          <Input name="author" defaultValue={state.values?.author} />
+        </Field>
 
-      {state.error && <p className="text-red-600">{state.error}</p>}
-      {state.message && <p className="text-green-700">{state.message}</p>}
+        {state.error && <FormMessage tone="error">{state.error}</FormMessage>}
+        {state.message && <FormMessage tone="success">{state.message}</FormMessage>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        {pending ? "Adding…" : "Add announcement"}
-      </button>
-    </form>
+        <Button type="submit" disabled={pending} className="self-start">
+          {pending ? "Adding…" : "Add announcement"}
+        </Button>
+      </form>
+    </Card>
   );
 }

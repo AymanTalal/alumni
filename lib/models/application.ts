@@ -355,6 +355,51 @@ export async function getApplicationsWithJobPostingsByUserId(
   }
 }
 
+// An application together with both its applicant and its job posting (for /applications)
+export type ApplicationWithDetails = ApplicationWithUser & ApplicationWithJobPosting;
+
+// Returns every application, each with its applicant's id, name and email and its job posting's
+// id, title and company, newest first (an empty list if there are none). Read-only, like the two
+// joins above.
+export async function getAllApplicationsWithDetails(): Promise<{
+  applications: ApplicationWithDetails[];
+}> {
+  try {
+    const rows = await query<
+      ApplicationRow & {
+        user_name: string;
+        user_email: string | null;
+        job_title: string;
+        job_company: string | null;
+      }
+    >(
+      `SELECT ${JOINED_COLUMNS}, u.name AS user_name, u.email AS user_email,
+              j.title AS job_title, j.company AS job_company
+       FROM applications a
+       JOIN users u ON u.id = a.user_id
+       JOIN job_postings j ON j.id = a.job_posting_id
+       ORDER BY a.created_at DESC, a.id DESC`,
+    );
+    return {
+      applications: rows.map((row) => ({
+        ...toApplication(row),
+        user: {
+          id: Number(row.user_id),
+          name: row.user_name,
+          ...(row.user_email !== null && { email: row.user_email }),
+        },
+        jobPosting: {
+          id: Number(row.job_posting_id),
+          title: row.job_title,
+          ...(row.job_company !== null && { company: row.job_company }),
+        },
+      })),
+    };
+  } catch (error) {
+    logAndRethrow(error);
+  }
+}
+
 // Returns the application with this id, or "not-found".
 export async function getApplicationById(id: number | string): Promise<ApplicationResult> {
   const applicationId = parseId(id);

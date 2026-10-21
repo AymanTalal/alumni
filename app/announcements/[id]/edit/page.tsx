@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import * as AnnouncementController from "@/lib/controllers/AnnouncementController";
 import AnnouncementEditForm from "@/lib/views/announcements/AnnouncementEditForm";
+import PageContainer from "@/lib/views/ui/PageContainer";
+import PageHeader from "@/lib/views/ui/PageHeader";
 import { updateAnnouncementAction } from "../../actions";
 
 // Route: "/announcements/:id/edit"  (file: app/announcements/[id]/edit/page.tsx)
@@ -21,9 +23,12 @@ export default async function EditAnnouncementPage({
   if ("error" in result) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-      <h1 className="text-3xl font-bold">Edit announcement</h1>
+    <PageContainer width="narrow">
+      <PageHeader
+        back={{ href: `/announcements/${result.announcement.id}`, label: "Back to the announcement" }}
+        title="Edit announcement"
+      />
       <AnnouncementEditForm announcement={result.announcement} action={updateAnnouncementAction} />
-    </main>
+    </PageContainer>
   );
 }

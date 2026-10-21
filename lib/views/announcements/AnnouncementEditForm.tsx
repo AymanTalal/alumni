@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import type { Announcement } from "@/lib/models/announcement";
+import { Button, ButtonLink } from "../ui/Button";
+import Card from "../ui/Card";
+import { Field, FormMessage, Input, Textarea } from "../ui/Field";
 import type { AnnouncementFormState } from "./AnnouncementCreateForm";
 
 // View: the "Edit announcement" form. Same fields as the create form, pre-filled with the
@@ -28,49 +30,31 @@ export default function AnnouncementEditForm({ announcement, action }: Props) {
     state.values ? state.values[field] : (announcement[field] ?? "");
 
   return (
-    <form action={formAction} className="mt-6 flex flex-col gap-3 rounded border border-gray-300 p-4">
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Title *</span>
-        <input
-          name="title"
-          defaultValue={value("title")}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+    <Card>
+      <form action={formAction} className="flex flex-col gap-5">
+        <Field label="Title" required>
+          <Input name="title" defaultValue={value("title")} />
+        </Field>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Content *</span>
-        <textarea
-          name="content"
-          rows={6}
-          defaultValue={value("content")}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        <Field label="Content" required>
+          <Textarea name="content" rows={6} defaultValue={value("content")} />
+        </Field>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Author</span>
-        <input
-          name="author"
-          defaultValue={value("author")}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        <Field label="Author">
+          <Input name="author" defaultValue={value("author")} />
+        </Field>
 
-      {state.error && <p className="text-red-600">{state.error}</p>}
+        {state.error && <FormMessage tone="error">{state.error}</FormMessage>}
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Save changes"}
-        </button>
-        <Link href={`/announcements/${announcement.id}`} className="text-blue-600 hover:underline">
-          Cancel
-        </Link>
-      </div>
-    </form>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={pending}>
+            {pending ? "Saving…" : "Save changes"}
+          </Button>
+          <ButtonLink href={`/announcements/${announcement.id}`} variant="secondary">
+            Cancel
+          </ButtonLink>
+        </div>
+      </form>
+    </Card>
   );
 }

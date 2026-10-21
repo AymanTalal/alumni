@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Design tokens — the ONLY place the app's colors, fonts, radius and shadows are defined.
+ * Tailwind 4 turns every token below into utilities (e.g. --color-primary → bg-primary,
+ * text-primary, border-primary; --radius-card → rounded-card; --shadow-card → shadow-card),
+ * which the shared UI pieces in lib/views/ui/ use. To change the look of the whole app,
+ * edit the values here.
+ *
+ * The two brand colors are read from the İstanbul Üniversitesi logo (public/logo.png):
+ * the deep green (#00733e) and the golden yellow (#fdd525). Green is the main accent
+ * (buttons, links, focus rings); yellow is only a small highlight.
+ */
+@theme {
+  /* Brand: logo green */
+  --color-primary: #00733e; /* buttons, links; white text on it has a 6:1 contrast */
+  --color-primary-hover: #005c32; /* darker green for hover / pressed */
+  --color-primary-soft: #e6f2ec; /* very light green: "accepted" badge, active nav item */
+  --color-on-primary: #ffffff; /* text on green */
+
+  /* Brand: logo yellow (small highlights only) */
+  --color-accent: #fdd525;
+  --color-accent-soft: #fff8d9; /* very light yellow: "pending" badge */
+  --color-on-accent: #4a3c00; /* dark text on yellow, well above 4.5:1 */
+
+  /* Neutrals: white and light gray everywhere else */
+  --color-canvas: #f5f5f7; /* page background */
+  --color-surface: #ffffff; /* cards, tables, inputs */
+  --color-subtle: #f9fafb; /* table headers, hovered rows */
+  --color-border: #e5e7eb;
+  --color-border-strong: #d1d5db; /* inputs */
+  --color-ink: #1d1d1f; /* main text */
+  --color-muted: #5f6368; /* secondary text, 5.9:1 on white */
+
+  /* Feedback */
+  --color-danger: #b42318; /* delete buttons, error messages, "rejected" badge */
+  --color-danger-hover: #912018;
+  --color-danger-soft: #fef3f2;
+
+  /* Shape and depth */
+  --radius-card: 1rem;
+  --radius-control: 0.625rem;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
 }
 
+/* Fonts come from next/font in app/layout.tsx (Geist), so they're set with "inline" */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* A clear keyboard focus ring on every link, button and form control */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }

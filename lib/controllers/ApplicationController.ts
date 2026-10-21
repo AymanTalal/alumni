@@ -9,6 +9,7 @@ import * as ApplicationModel from "@/lib/models/application";
 import type {
   Application,
   ApplicationError,
+  ApplicationWithDetails,
   ApplicationWithJobPosting,
   ApplicationWithUser,
 } from "@/lib/models/application";
@@ -66,6 +67,12 @@ export async function getAllForUser(
 ): Promise<{ applications: ApplicationWithJobPosting[] } | { error: string }> {
   const result = await ApplicationModel.getApplicationsWithJobPostingsByUserId(userId);
   return "error" in result ? { error: messageFor(result) } : result;
+}
+
+// Every application, each with its applicant's name and email and its job posting's title and
+// company, newest first. (A database error here is shown by Next.js's error page.)
+export async function getAll(): Promise<{ applications: ApplicationWithDetails[] }> {
+  return ApplicationModel.getAllApplicationsWithDetails();
 }
 
 // Changes only the status. Returns { application } on success, or { error } if the id is invalid,

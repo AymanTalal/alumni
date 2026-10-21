@@ -2,6 +2,8 @@
 
 import { useActionState } from "react";
 import type { ApplicationStatus } from "@/lib/models/application";
+import { Button } from "../ui/Button";
+import { Select } from "../ui/Field";
 import type { ApplicationFormState } from "./ApplicationCreateForm";
 
 // View: a small form to change one application's status (pending, accepted, rejected).
@@ -27,27 +29,18 @@ export default function ApplicationStatusForm({ applicationId, status, statuses,
   return (
     <form action={formAction} className="inline-flex flex-col">
       <div className="flex items-center gap-2">
-        <select
-          name="status"
-          defaultValue={status}
-          aria-label="Status"
-          className="rounded border border-gray-300 px-1 py-0.5 text-sm"
-        >
+        <Select name="status" defaultValue={status} aria-label="Status" className="w-auto py-1 text-sm">
           {statuses.map((value) => (
             <option key={value} value={value}>
               {value}
             </option>
           ))}
-        </select>
-        <button
-          type="submit"
-          disabled={pending}
-          className="text-sm text-blue-600 hover:underline disabled:opacity-50"
-        >
+        </Select>
+        <Button type="submit" variant="secondary" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Update"}
-        </button>
+        </Button>
       </div>
-      {state.error && <span className="text-sm text-red-600">{state.error}</span>}
+      {state.error && <span className="mt-1 text-sm text-danger">{state.error}</span>}
     </form>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Button } from "../ui/Button";
 
 // View: a small form with a "Delete" button. Markup and styling only, no data logic:
 // it asks for confirmation, then runs the delete Server Action passed in as `action`,
@@ -17,9 +18,10 @@ type Props = {
     state: DeleteJobPostingState,
     formData: FormData,
   ) => Promise<DeleteJobPostingState>;
+  size?: "md" | "sm";
 };
 
-export default function DeleteJobPostingButton({ jobPostingId, title, action }: Props) {
+export default function DeleteJobPostingButton({ jobPostingId, title, action, size = "sm" }: Props) {
   // bind attaches this job posting's id to the action, as the Next.js forms guide recommends
   const [state, formAction, pending] = useActionState(action.bind(null, jobPostingId), {});
 
@@ -37,14 +39,10 @@ export default function DeleteJobPostingButton({ jobPostingId, title, action }: 
       }}
       className="inline-flex flex-col"
     >
-      <button
-        type="submit"
-        disabled={pending}
-        className="text-red-600 hover:underline disabled:opacity-50"
-      >
+      <Button type="submit" variant="danger" size={size} disabled={pending}>
         {pending ? "Deleting…" : "Delete"}
-      </button>
-      {state.error && <span className="text-sm text-red-600">{state.error}</span>}
+      </Button>
+      {state.error && <span className="mt-1 text-sm text-danger">{state.error}</span>}
     </form>
   );
 }

@@ -1,5 +1,6 @@
-import Link from "next/link";
 import JobPostingCreateForm from "@/lib/views/jobs/JobPostingCreateForm";
+import PageContainer from "@/lib/views/ui/PageContainer";
+import PageHeader from "@/lib/views/ui/PageHeader";
 import { createJobPostingAction } from "../actions";
 
 // Route: "/jobs/new"  (file: app/jobs/new/page.tsx)
@@ -9,12 +10,9 @@ import { createJobPostingAction } from "../actions";
 
 export default function NewJobPostingPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-      <Link href="/jobs" className="text-blue-600 hover:underline">
-        ← All job postings
-      </Link>
-      <h1 className="mt-6 text-3xl font-bold">New job posting</h1>
+    <PageContainer width="narrow">
+      <PageHeader back={{ href: "/jobs", label: "All job postings" }} title="New job posting" />
       <JobPostingCreateForm action={createJobPostingAction} />
-    </main>
+    </PageContainer>
   );
 }

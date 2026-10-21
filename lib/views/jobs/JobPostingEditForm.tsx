@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import type { JobPosting } from "@/lib/models/jobPosting";
+import { Button, ButtonLink } from "../ui/Button";
+import Card from "../ui/Card";
+import { Field, FormMessage, Input } from "../ui/Field";
 import type { JobPostingFormState } from "./JobPostingCreateForm";
 
 // View: the "Edit job posting" form. Same fields as the create form, pre-filled with the
@@ -28,39 +30,27 @@ export default function JobPostingEditForm({ jobPosting, action }: Props) {
     state.values ? state.values[field] : (jobPosting[field] ?? "");
 
   return (
-    <form action={formAction} className="mt-6 flex flex-col gap-3 rounded border border-gray-300 p-4">
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Title *</span>
-        <input
-          name="title"
-          defaultValue={value("title")}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+    <Card>
+      <form action={formAction} className="flex flex-col gap-5">
+        <Field label="Title" required>
+          <Input name="title" defaultValue={value("title")} />
+        </Field>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Company</span>
-        <input
-          name="company"
-          defaultValue={value("company")}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        <Field label="Company" hint="Leave empty to remove the company.">
+          <Input name="company" defaultValue={value("company")} />
+        </Field>
 
-      {state.error && <p className="text-red-600">{state.error}</p>}
+        {state.error && <FormMessage tone="error">{state.error}</FormMessage>}
 
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Save changes"}
-        </button>
-        <Link href={`/jobs/${jobPosting.id}`} className="text-blue-600 hover:underline">
-          Cancel
-        </Link>
-      </div>
-    </form>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={pending}>
+            {pending ? "Saving…" : "Save changes"}
+          </Button>
+          <ButtonLink href={`/jobs/${jobPosting.id}`} variant="secondary">
+            Cancel
+          </ButtonLink>
+        </div>
+      </form>
+    </Card>
   );
 }

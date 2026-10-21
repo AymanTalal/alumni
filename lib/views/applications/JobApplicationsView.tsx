@@ -1,7 +1,11 @@
-import Link from "next/link";
 import type { ApplicationStatus, ApplicationWithUser } from "@/lib/models/application";
 import type { User } from "@/lib/models/user";
 import { formatDate } from "../announcements/formatDate";
+import { StatusBadge } from "../ui/Badge";
+import EmptyState from "../ui/EmptyState";
+import Section from "../ui/Section";
+import { Table, TableBody, TableHead, Td, Th, Tr } from "../ui/Table";
+import TextLink from "../ui/TextLink";
 import ApplicationCreateForm, { type ApplicationFormState } from "./ApplicationCreateForm";
 import ApplicationStatusForm from "./ApplicationStatusForm";
 import DeleteApplicationButton, { type DeleteApplicationState } from "./DeleteApplicationButton";
@@ -33,13 +37,6 @@ type Props = {
   ) => Promise<DeleteApplicationState>;
 };
 
-// Text color for each status
-const STATUS_STYLE: Record<ApplicationStatus, string> = {
-  pending: "text-gray-700",
-  accepted: "text-green-700",
-  rejected: "text-red-600",
-};
-
 export default function JobApplicationsView({
   jobPostingId,
   applications,
@@ -50,43 +47,33 @@ export default function JobApplicationsView({
   deleteAction,
 }: Props) {
   return (
-    <section className="mt-10">
-      <h2 className="text-2xl font-semibold">Applications</h2>
-      <p className="mt-1 text-gray-600">{applications.length} application(s)</p>
-
+    <Section title="Applications" description={`${applications.length} application(s)`}>
       {applications.length === 0 ? (
-        <p className="mt-4 text-gray-600">No applications yet. Add one with the form below.</p>
+        <EmptyState title="No applications yet.">Add one with the form below.</EmptyState>
       ) : (
-        <table className="mt-4 w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-gray-300">
-              <th className="py-2 pr-4">Applicant</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Applied</th>
-              <th className="py-2 pr-4">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHead>
+            <Th>Applicant</Th>
+            <Th>Status</Th>
+            <Th>Applied</Th>
+            <Th>Actions</Th>
+          </TableHead>
+          <TableBody>
             {applications.map((application) => (
-              <tr key={application.id} className="border-b border-gray-200 align-top">
-                <td className="py-2 pr-4">
-                  <Link
-                    href={`/users/${application.user.id}`}
-                    className="font-medium text-blue-600 hover:underline"
-                  >
-                    {application.user.name}
-                  </Link>
-                  <div className="text-sm text-gray-600">{application.user.email || "—"}</div>
-                </td>
-                <td className={`py-2 pr-4 font-medium ${STATUS_STYLE[application.status]}`}>
-                  {application.status}
-                </td>
-                <td className="py-2 pr-4 text-sm text-gray-600">
-                  {formatDate(application.createdAt)}
-                </td>
-                <td className="py-2 pr-4">
-                  <div className="flex items-start gap-3">
+              <Tr key={application.id}>
+                <Td>
+                  <TextLink href={`/users/${application.user.id}`}>{application.user.name}</TextLink>
+                  <div className="text-muted">{application.user.email || "—"}</div>
+                </Td>
+                <Td>
+                  <StatusBadge status={application.status} />
+                </Td>
+                <Td className="whitespace-nowrap text-muted">{formatDate(application.createdAt)}</Td>
+                <Td>
+                  <div className="flex flex-wrap items-start gap-2">
                     <ApplicationStatusForm
+                      // key: a new status remounts the form, so its dropdown shows the saved status
+                      key={application.status}
                       applicationId={application.id}
                       status={application.status}
                       statuses={statuses}
@@ -98,14 +85,14 @@ export default function JobApplicationsView({
                       action={deleteAction}
                     />
                   </div>
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
 
       <ApplicationCreateForm jobPostingId={jobPostingId} users={users} action={createAction} />
-    </section>
+    </Section>
   );
 }

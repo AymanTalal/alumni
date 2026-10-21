@@ -1,10 +1,13 @@
 import Link from "next/link";
 import type { JobPosting } from "@/lib/models/jobPosting";
 import { formatDate } from "../announcements/formatDate";
+import { ButtonLink } from "../ui/Button";
+import { cardClasses } from "../ui/Card";
+import EmptyState from "../ui/EmptyState";
 import DeleteJobPostingButton, { type DeleteJobPostingState } from "./DeleteJobPostingButton";
 
-// View: renders a list of job postings as a table (title, company, date), with
-// View / Edit / Delete for each row. Markup and styling only, no data logic: the page gets
+// View: renders the job postings as job-listing cards (title, company, date), with
+// View / Edit / Delete for each. Markup and styling only, no data logic: the page gets
 // the postings from JobPostingController and passes them in, with the delete Server Action.
 
 type Props = {
@@ -19,47 +22,45 @@ type Props = {
 export default function JobPostingListView({ jobPostings, deleteAction }: Props) {
   if (jobPostings.length === 0) {
     return (
-      <p className="mt-6 text-gray-600">
-        No job postings yet. Add one with the &quot;New job posting&quot; button, or with{" "}
-        <code>POST /api/jobs</code>.
-      </p>
+      <EmptyState title="No job postings yet.">
+        Add one with the &quot;New job posting&quot; button, or with <code>POST /api/jobs</code>.
+      </EmptyState>
     );
   }
 
   return (
-    <table className="mt-6 w-full border-collapse text-left">
-      <thead>
-        <tr className="border-b border-gray-300">
-          <th className="py-2 pr-4">Title</th>
-          <th className="py-2 pr-4">Company</th>
-          <th className="py-2 pr-4">Date</th>
-          <th className="py-2 pr-4">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {jobPostings.map((jobPosting) => (
-          <tr key={jobPosting.id} className="border-b border-gray-200 align-top">
-            <td className="py-2 pr-4 font-medium">{jobPosting.title}</td>
-            <td className="py-2 pr-4">{jobPosting.company || "—"}</td>
-            <td className="py-2 pr-4 text-sm text-gray-600">{formatDate(jobPosting.createdAt)}</td>
-            <td className="py-2 pr-4">
-              <div className="flex gap-3">
-                <Link href={`/jobs/${jobPosting.id}`} className="text-blue-600 hover:underline">
-                  View
-                </Link>
-                <Link href={`/jobs/${jobPosting.id}/edit`} className="text-blue-600 hover:underline">
-                  Edit
-                </Link>
-                <DeleteJobPostingButton
-                  jobPostingId={jobPosting.id}
-                  title={jobPosting.title}
-                  action={deleteAction}
-                />
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <ul className="flex flex-col gap-3">
+      {jobPostings.map((jobPosting) => (
+        <li
+          key={jobPosting.id}
+          className={`${cardClasses} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}
+        >
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold break-words text-ink">
+              <Link href={`/jobs/${jobPosting.id}`} className="hover:text-primary hover:underline">
+                {jobPosting.title}
+              </Link>
+            </h2>
+            <p className="mt-0.5 text-sm text-muted">
+              <span className="font-medium text-ink">{jobPosting.company || "—"}</span>
+              {" · "}Posted {formatDate(jobPosting.createdAt)}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-start gap-2">
+            <ButtonLink href={`/jobs/${jobPosting.id}`} size="sm">
+              View
+            </ButtonLink>
+            <ButtonLink href={`/jobs/${jobPosting.id}/edit`} variant="secondary" size="sm">
+              Edit
+            </ButtonLink>
+            <DeleteJobPostingButton
+              jobPostingId={jobPosting.id}
+              title={jobPosting.title}
+              action={deleteAction}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }

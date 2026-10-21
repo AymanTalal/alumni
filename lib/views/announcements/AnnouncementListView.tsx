@@ -1,5 +1,8 @@
-import Link from "next/link";
 import type { Announcement } from "@/lib/models/announcement";
+import { ButtonLink } from "../ui/Button";
+import EmptyState from "../ui/EmptyState";
+import { Table, TableBody, TableHead, Td, Th, Tr } from "../ui/Table";
+import TextLink from "../ui/TextLink";
 import DeleteAnnouncementButton, { type DeleteAnnouncementState } from "./DeleteAnnouncementButton";
 import { formatDate } from "./formatDate";
 
@@ -19,53 +22,46 @@ type Props = {
 export default function AnnouncementListView({ announcements, deleteAction }: Props) {
   if (announcements.length === 0) {
     return (
-      <p className="mt-6 text-gray-600">
-        No announcements yet. Add one with the form above, or with{" "}
-        <code>POST /api/announcements</code>.
-      </p>
+      <EmptyState title="No announcements yet.">
+        Add one with the form above, or with <code>POST /api/announcements</code>.
+      </EmptyState>
     );
   }
 
   return (
-    <table className="mt-6 w-full border-collapse text-left">
-      <thead>
-        <tr className="border-b border-gray-300">
-          <th className="py-2 pr-4">Title</th>
-          <th className="py-2 pr-4">Author</th>
-          <th className="py-2 pr-4">Date</th>
-          <th className="py-2 pr-4">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHead>
+        <Th>Title</Th>
+        <Th>Author</Th>
+        <Th>Date</Th>
+        <Th>Actions</Th>
+      </TableHead>
+      <TableBody>
         {announcements.map((announcement) => (
-          <tr key={announcement.id} className="border-b border-gray-200 align-top">
-            <td className="py-2 pr-4 font-medium">{announcement.title}</td>
-            <td className="py-2 pr-4">{announcement.author || "—"}</td>
-            <td className="py-2 pr-4 text-sm text-gray-600">{formatDate(announcement.createdAt)}</td>
-            <td className="py-2 pr-4">
-              <div className="flex gap-3">
-                <Link
-                  href={`/announcements/${announcement.id}`}
-                  className="text-blue-600 hover:underline"
-                >
+          <Tr key={announcement.id}>
+            <Td>
+              <TextLink href={`/announcements/${announcement.id}`}>{announcement.title}</TextLink>
+            </Td>
+            <Td>{announcement.author || "—"}</Td>
+            <Td className="whitespace-nowrap text-muted">{formatDate(announcement.createdAt)}</Td>
+            <Td>
+              <div className="flex flex-wrap items-start gap-2">
+                <ButtonLink href={`/announcements/${announcement.id}`} variant="secondary" size="sm">
                   View
-                </Link>
-                <Link
-                  href={`/announcements/${announcement.id}/edit`}
-                  className="text-blue-600 hover:underline"
-                >
+                </ButtonLink>
+                <ButtonLink href={`/announcements/${announcement.id}/edit`} variant="secondary" size="sm">
                   Edit
-                </Link>
+                </ButtonLink>
                 <DeleteAnnouncementButton
                   announcementId={announcement.id}
                   title={announcement.title}
                   action={deleteAction}
                 />
               </div>
-            </td>
-          </tr>
+            </Td>
+          </Tr>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

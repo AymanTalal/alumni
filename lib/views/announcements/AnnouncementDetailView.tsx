@@ -1,5 +1,7 @@
-import Link from "next/link";
 import type { Announcement } from "@/lib/models/announcement";
+import { ButtonLink } from "../ui/Button";
+import Card from "../ui/Card";
+import PageHeader from "../ui/PageHeader";
 import DeleteAnnouncementButton, { type DeleteAnnouncementState } from "./DeleteAnnouncementButton";
 import { formatDate } from "./formatDate";
 
@@ -19,35 +21,33 @@ type Props = {
 export default function AnnouncementDetailView({ announcement, deleteAction }: Props) {
   return (
     <>
-      <Link href="/announcements" className="text-blue-600 hover:underline">
-        ← All announcements
-      </Link>
+      <PageHeader
+        back={{ href: "/announcements", label: "All announcements" }}
+        title={announcement.title}
+        description={
+          <>
+            {announcement.author ? `By ${announcement.author} · ` : ""}
+            Posted {formatDate(announcement.createdAt)}
+            {announcement.updatedAt !== announcement.createdAt &&
+              ` · Updated ${formatDate(announcement.updatedAt)}`}
+          </>
+        }
+        actions={
+          <>
+            <ButtonLink href={`/announcements/${announcement.id}/edit`}>Edit</ButtonLink>
+            <DeleteAnnouncementButton
+              announcementId={announcement.id}
+              title={announcement.title}
+              action={deleteAction}
+              size="md"
+            />
+          </>
+        }
+      />
 
-      <h1 className="mt-6 text-3xl font-bold">{announcement.title}</h1>
-      <p className="mt-1 text-sm text-gray-600">
-        {announcement.author ? `By ${announcement.author} · ` : ""}
-        Posted {formatDate(announcement.createdAt)}
-        {announcement.updatedAt !== announcement.createdAt &&
-          ` · Updated ${formatDate(announcement.updatedAt)}`}
-      </p>
-
-      <p className="mt-6 whitespace-pre-line text-gray-800">{announcement.content}</p>
-
-      <div className="mt-8 flex items-start gap-4">
-        <Link
-          href={`/announcements/${announcement.id}/edit`}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          Edit
-        </Link>
-        <div className="py-2">
-          <DeleteAnnouncementButton
-            announcementId={announcement.id}
-            title={announcement.title}
-            action={deleteAction}
-          />
-        </div>
-      </div>
+      <Card>
+        <p className="leading-relaxed whitespace-pre-line text-ink">{announcement.content}</p>
+      </Card>
     </>
   );
 }

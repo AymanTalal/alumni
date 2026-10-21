@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import * as UserController from "@/lib/controllers/UserController";
+import PageContainer from "@/lib/views/ui/PageContainer";
+import PageHeader from "@/lib/views/ui/PageHeader";
 import UserEditForm from "@/lib/views/users/UserEditForm";
 import { updateUserAction } from "../../actions";
 
@@ -19,9 +21,12 @@ export default async function EditUserPage({ params }: PageProps<"/users/[id]/ed
   if ("error" in result) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-      <h1 className="text-3xl font-bold">Edit {result.user.name}</h1>
+    <PageContainer width="narrow">
+      <PageHeader
+        back={{ href: `/users/${result.user.id}`, label: "Back to the user" }}
+        title={`Edit ${result.user.name}`}
+      />
       <UserEditForm user={result.user} action={updateUserAction} />
-    </main>
+    </PageContainer>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Button } from "../ui/Button";
 
 // View: a small form with a "Delete" button. Markup and styling only, no data logic:
 // it asks for confirmation, then runs the delete Server Action passed in as `action`,
@@ -13,9 +14,10 @@ type Props = {
   userId: number;
   userName: string;
   action: (userId: number, state: DeleteUserState, formData: FormData) => Promise<DeleteUserState>;
+  size?: "md" | "sm";
 };
 
-export default function DeleteUserButton({ userId, userName, action }: Props) {
+export default function DeleteUserButton({ userId, userName, action, size = "sm" }: Props) {
   // bind attaches this user's id to the action, as the Next.js forms guide recommends
   const [state, formAction, pending] = useActionState(action.bind(null, userId), {});
 
@@ -29,14 +31,10 @@ export default function DeleteUserButton({ userId, userName, action }: Props) {
       }}
       className="inline-flex flex-col"
     >
-      <button
-        type="submit"
-        disabled={pending}
-        className="text-red-600 hover:underline disabled:opacity-50"
-      >
+      <Button type="submit" variant="danger" size={size} disabled={pending}>
         {pending ? "Deleting…" : "Delete"}
-      </button>
-      {state.error && <span className="text-sm text-red-600">{state.error}</span>}
+      </Button>
+      {state.error && <span className="mt-1 text-sm text-danger">{state.error}</span>}
     </form>
   );
 }

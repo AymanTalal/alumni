@@ -1,6 +1,8 @@
 import { connection } from "next/server";
 import * as UserController from "@/lib/controllers/UserController";
 import UserCreateForm from "@/lib/views/users/UserCreateForm";
+import PageContainer from "@/lib/views/ui/PageContainer";
+import PageHeader from "@/lib/views/ui/PageHeader";
 import UserListView from "@/lib/views/users/UserListView";
 import { createUserAction, deleteUserAction } from "./actions";
 
@@ -17,12 +19,11 @@ export default async function UsersPage() {
   const { users } = await UserController.getAll();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-      <h1 className="text-3xl font-bold">Users</h1>
-      <p className="mt-1 text-gray-600">{users.length} user(s)</p>
+    <PageContainer>
+      <PageHeader title="Users" description={`${users.length} user(s)`} />
 
       <UserCreateForm action={createUserAction} />
       <UserListView users={users} deleteAction={deleteUserAction} />
-    </main>
+    </PageContainer>
   );
 }

@@ -10,7 +10,8 @@ import type { DeleteJobPostingState } from "@/lib/views/jobs/DeleteJobPostingBut
 import type { JobPostingFormState } from "@/lib/views/jobs/JobPostingCreateForm";
 
 // Server Actions for the job posting pages: create, update and delete a posting, and add,
-// change the status of, and remove an application on a posting's page.
+// change the status of, and remove an application on a posting's page. The status and remove
+// actions are also used by the /applications page (app/applications/page.tsx).
 // When one of the forms is submitted, the browser sends a POST to the page it's on
 // and Next.js runs the matching function here on the server.
 // No data logic in this file: each action reads the form, calls JobPostingController or
@@ -104,13 +105,15 @@ export async function createApplicationAction(
     return { error: result.error };
   }
 
-  // Success: refresh this posting's page and the applicant's page
+  // Success: refresh this posting's page, the applicant's page and /applications
   revalidatePath(`/jobs/${jobPostingId}`);
   revalidatePath(`/users/${result.application.userId}`);
+  revalidatePath("/applications");
   return { message: "Application added." };
 }
 
-// Change the status (the status form in each row). applicationId is bound by the form.
+// Change the status (the status form in each row, on /jobs/{id} and on /applications).
+// applicationId is bound by the form.
 export async function updateApplicationStatusAction(
   applicationId: number,
   _previousState: ApplicationFormState,
@@ -123,13 +126,15 @@ export async function updateApplicationStatusAction(
     return { error: result.error };
   }
 
-  // Success: refresh the posting's page and the applicant's page
+  // Success: refresh the posting's page, the applicant's page and /applications
   revalidatePath(`/jobs/${result.application.jobPostingId}`);
   revalidatePath(`/users/${result.application.userId}`);
+  revalidatePath("/applications");
   return {};
 }
 
-// Remove (the "Remove" button in each row). applicationId is bound by the button.
+// Remove (the "Remove" button in each row, on /jobs/{id} and on /applications).
+// applicationId is bound by the button.
 // (The form also passes the previous state and the form data, but delete doesn't need them.)
 export async function deleteApplicationAction(
   applicationId: number,
@@ -141,8 +146,9 @@ export async function deleteApplicationAction(
     return { error: result.error };
   }
 
-  // Success: refresh the job posting pages and the users' pages that listed it
+  // Success: refresh the job posting pages, the users' pages that listed it and /applications
   revalidatePath("/jobs/[id]", "page");
   revalidatePath("/users/[id]", "page");
+  revalidatePath("/applications");
   return {};
 }

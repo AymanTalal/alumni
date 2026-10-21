@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import * as AnnouncementController from "@/lib/controllers/AnnouncementController";
 import AnnouncementDetailView from "@/lib/views/announcements/AnnouncementDetailView";
+import PageContainer from "@/lib/views/ui/PageContainer";
 import { deleteAnnouncementAction } from "../actions";
 
 // Route: "/announcements/:id"  (file: app/announcements/[id]/page.tsx)
@@ -19,11 +20,11 @@ export default async function AnnouncementPage({ params }: PageProps<"/announcem
   if ("error" in result) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+    <PageContainer width="narrow">
       <AnnouncementDetailView
         announcement={result.announcement}
         deleteAction={deleteAnnouncementAction}
       />
-    </main>
+    </PageContainer>
   );
 }

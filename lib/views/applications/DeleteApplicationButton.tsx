@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Button } from "../ui/Button";
 
 // View: a small form with a "Remove" button for one application. Markup and styling only, no data
 // logic: it asks for confirmation, then runs the delete Server Action passed in as `action`,
@@ -33,14 +34,10 @@ export default function DeleteApplicationButton({ applicationId, applicantName, 
       }}
       className="inline-flex flex-col"
     >
-      <button
-        type="submit"
-        disabled={pending}
-        className="text-red-600 hover:underline disabled:opacity-50"
-      >
+      <Button type="submit" variant="danger" size="sm" disabled={pending}>
         {pending ? "Removing…" : "Remove"}
-      </button>
-      {state.error && <span className="text-sm text-red-600">{state.error}</span>}
+      </Button>
+      {state.error && <span className="mt-1 text-sm text-danger">{state.error}</span>}
     </form>
   );
 }

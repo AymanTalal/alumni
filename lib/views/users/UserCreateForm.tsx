@@ -1,6 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
+import { Button } from "../ui/Button";
+import Card from "../ui/Card";
+import { Field, FormMessage, Input } from "../ui/Field";
 
 // View: the "Add a user" form. Markup and styling only, no data logic: submitting it runs the
 // Server Action passed in as `action`, and the form shows whatever result that action returns.
@@ -22,49 +25,29 @@ export default function UserCreateForm({ action }: Props) {
   const [state, formAction, pending] = useActionState(action, {});
 
   return (
-    <form action={formAction} className="mt-6 flex flex-col gap-3 rounded border border-gray-300 p-4">
-      <h2 className="text-xl font-semibold">Add a user</h2>
+    <Card className="mb-8">
+      <form action={formAction} className="flex flex-col gap-5">
+        <h2 className="text-lg font-semibold text-ink">Add a user</h2>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Name *</span>
-        <input
-          name="name"
-          defaultValue={state.values?.name}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Name" required>
+            <Input name="name" defaultValue={state.values?.name} />
+          </Field>
+          <Field label="Email">
+            <Input name="email" type="email" defaultValue={state.values?.email} />
+          </Field>
+          <Field label="Age">
+            <Input name="age" type="number" min={0} defaultValue={state.values?.age} />
+          </Field>
+        </div>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Email</span>
-        <input
-          name="email"
-          type="email"
-          defaultValue={state.values?.email}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
+        {state.error && <FormMessage tone="error">{state.error}</FormMessage>}
+        {state.message && <FormMessage tone="success">{state.message}</FormMessage>}
 
-      <label className="flex flex-col gap-1">
-        <span className="font-medium">Age</span>
-        <input
-          name="age"
-          type="number"
-          min={0}
-          defaultValue={state.values?.age}
-          className="rounded border border-gray-300 px-2 py-1"
-        />
-      </label>
-
-      {state.error && <p className="text-red-600">{state.error}</p>}
-      {state.message && <p className="text-green-700">{state.message}</p>}
-
-      <button
-        type="submit"
-        disabled={pending}
-        className="self-start rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-      >
-        {pending ? "Adding…" : "Add user"}
-      </button>
-    </form>
+        <Button type="submit" disabled={pending} className="self-start">
+          {pending ? "Adding…" : "Add user"}
+        </Button>
+      </form>
+    </Card>
   );
 }

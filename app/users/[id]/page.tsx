@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import * as ApplicationController from "@/lib/controllers/ApplicationController";
 import * as UserController from "@/lib/controllers/UserController";
 import UserApplicationsView from "@/lib/views/applications/UserApplicationsView";
+import PageContainer from "@/lib/views/ui/PageContainer";
 import UserDetailView from "@/lib/views/users/UserDetailView";
 import { deleteUserAction } from "../actions";
 
@@ -27,9 +28,9 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
   if ("error" in applications) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+    <PageContainer>
       <UserDetailView user={result.user} deleteAction={deleteUserAction} />
       <UserApplicationsView applications={applications.applications} />
-    </main>
+    </PageContainer>
   );
 }

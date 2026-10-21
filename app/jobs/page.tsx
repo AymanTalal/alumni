@@ -1,7 +1,9 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import * as JobPostingController from "@/lib/controllers/JobPostingController";
 import JobPostingListView from "@/lib/views/jobs/JobPostingListView";
+import { ButtonLink } from "@/lib/views/ui/Button";
+import PageContainer from "@/lib/views/ui/PageContainer";
+import PageHeader from "@/lib/views/ui/PageHeader";
 import { deleteJobPostingAction } from "./actions";
 
 // Route: "/jobs"  (file: app/jobs/page.tsx)
@@ -17,18 +19,14 @@ export default async function JobsPage() {
   const { jobPostings } = await JobPostingController.getAll();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Job postings</h1>
-          <p className="mt-1 text-gray-600">{jobPostings.length} job posting(s)</p>
-        </div>
-        <Link href="/jobs/new" className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-          New job posting
-        </Link>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Job postings"
+        description={`${jobPostings.length} job posting(s)`}
+        actions={<ButtonLink href="/jobs/new">New job posting</ButtonLink>}
+      />
 
       <JobPostingListView jobPostings={jobPostings} deleteAction={deleteJobPostingAction} />
-    </main>
+    </PageContainer>
   );
 }

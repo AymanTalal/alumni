@@ -53,6 +53,7 @@ This project is being built incrementally over the semester. Status is updated w
 - [x] **Week 6 — Job postings: table, model and API** — migration `003_create_job_postings`, the JobPosting Model with its rules (`lib/models/jobPosting.ts`) and a JSON API: `GET` / `POST /api/jobs` and `GET` / `PATCH` / `DELETE /api/jobs/{id}`. Following the professor's design, **job postings have no owner**: migration `004_drop_job_postings_user_id` removed `job_postings.user_id` and the nested route `/api/users/{id}/jobs` is gone; users and postings will be linked only through `applications` (many-to-many, next). Pages: see the Job posting and application pages below
 - [x] **Week 6 — Applications: table, model and API** — migration `005_create_applications` creates the `applications` join table (users ↔ job postings, **many-to-many**, `ON DELETE CASCADE` on both sides, one application per user and posting); the Application Model with its rules (`lib/models/application.ts`); and a JSON API through `ApiApplicationController`: nested routes `GET` / `POST /api/jobs/{id}/applications` and `GET /api/users/{id}/applications`, direct routes `GET /api/applications` and `GET` / `PATCH` (status only) / `DELETE /api/applications/{id}`. Applying twice gives **409**
 - [x] **Week 6 — Job posting and application pages** — the same MVC pattern as the announcement pages: `JobPostingController` / `ApplicationController` (page side), views in `lib/views/jobs/` and `lib/views/applications/`, and Server Actions in `app/jobs/actions.ts`. `/jobs` (list), `/jobs/new` (create), `/jobs/{id}` (detail with an **Applications** section: applicant name and email, status, date; add an application by choosing a user, change the status, remove it) and `/jobs/{id}/edit`; a read-only **Applications** section on `/users/{id}`; **Jobs** in the home page navigation
+- [x] **Week 6 — Basic UIs for job postings and applications** — one design for the whole app in the İstanbul Üniversitesi colors (green `#00733e`, yellow `#fdd525`, read from the logo): **design tokens** in `app/globals.css`, shared UI pieces in `lib/views/ui/` (Button, Card, Badge / StatusBadge, PageHeader, Table, form fields, EmptyState), a site header with the logo and the main navigation (current page highlighted), job postings shown as job-listing cards, and a new **`/applications`** page listing every application ([🎨 Design and theme](#-design-and-theme))
 - [x] **Week 5 — Database** — the Models store users and announcements in PostgreSQL with parameterized plain SQL (`lib/db.ts`), so data survives restarts and `docker compose down` ([🧪 The Forgetting Test](#-the-forgetting-test))
 
 ---
@@ -62,10 +63,10 @@ This project is being built incrementally over the semester. Status is updated w
 ```
 alumni/
 ├── app/                              # Next.js App Router — every folder is a URL segment
-│   ├── layout.tsx                    # Root layout shared by all pages
-│   ├── globals.css                   # Global styles (Tailwind CSS)
+│   ├── layout.tsx                    # Root layout shared by all pages: the site header (logo + navigation) above every page
+│   ├── globals.css                   # Tailwind CSS + the DESIGN TOKENS (colors, fonts, radius, shadows) — change the theme here
 │   ├── favicon.ico                   # Browser tab icon
-│   ├── page.tsx                      # /                   temporary homepage with links to Users and Announcements
+│   ├── page.tsx                      # /                   temporary homepage with cards linking to the four sections
 │   ├── about/page.tsx                # /about              temporary about page
 │   ├── users/
 │   │   ├── page.tsx                  # GET /users          user list + "Add a user" form  → UserController
@@ -83,6 +84,8 @@ alumni/
 │   │       ├── not-found.tsx         #                     "Announcement not found" page (404)
 │   │       └── edit/
 │   │           └── page.tsx          # GET /announcements/{id}/edit  edit form (HTML)     → AnnouncementController
+│   ├── applications/
+│   │   └── page.tsx                  # GET /applications   every application (applicant, job posting, status) → ApplicationController
 │   ├── jobs/
 │   │   ├── page.tsx                  # GET /jobs           job posting list + "New job posting" → JobPostingController
 │   │   ├── actions.ts                # Server Actions      job postings: create, update, delete; applications: add, status, remove
@@ -131,6 +134,19 @@ alumni/
 │   │   ├── jobPosting.ts             # JobPosting Model: rules + CRUD in plain SQL on job_postings
 │   │   └── application.ts            # Application Model: rules + CRUD in plain SQL on applications
 │   ├── views/
+│   │   ├── ui/                       # Shared UI pieces, built once and used by every view and page (markup only)
+│   │   │   ├── Button.tsx            # Button / ButtonLink: primary (green), secondary, danger; buttonClasses()
+│   │   │   ├── Card.tsx              # White rounded card with a light shadow
+│   │   │   ├── Badge.tsx             # Badge + StatusBadge (pending = yellow, accepted = green, rejected = red)
+│   │   │   ├── PageHeader.tsx        # "← back" link, page title, description, action buttons
+│   │   │   ├── PageContainer.tsx     # The centered <main> wrapper of every page
+│   │   │   ├── Section.tsx           # A titled block inside a page (e.g. "Applications")
+│   │   │   ├── Table.tsx             # Compact dashboard table in a card (scrolls inside the card on a phone)
+│   │   │   ├── Field.tsx             # Field (label + control + hint / error), Input, Textarea, Select, FormMessage
+│   │   │   ├── EmptyState.tsx        # What an empty list shows
+│   │   │   ├── TextLink.tsx          # Green inline link
+│   │   │   ├── SiteHeader.tsx        # Header: logo (next/image), project name, navigation
+│   │   │   └── NavLinks.tsx          # Main navigation, highlights the current page (Client Component)
 │   │   ├── users/
 │   │   │   ├── UserListView.tsx      # Table of users with View / Edit / Delete (markup only)
 │   │   │   ├── UserDetailView.tsx    # One user's fields + Edit / Delete (markup only)
@@ -153,10 +169,13 @@ alumni/
 │   │   └── applications/
 │   │       ├── JobApplicationsView.tsx       # A posting's Applications: applicant, status, date + status form / Remove (markup only)
 │   │       ├── ApplicationCreateForm.tsx     # "Add application" form: choose a user (markup only)
+│   │       ├── ApplicationListView.tsx       # Table on /applications: applicant, job posting, status, date + status form / Remove (markup only)
 │   │       ├── ApplicationStatusForm.tsx     # Status dropdown + Update for one application (markup only)
 │   │       ├── DeleteApplicationButton.tsx   # Remove button that asks for confirmation (markup only)
 │   │       └── UserApplicationsView.tsx      # A user's Applications: job title, company, status, date (read-only, markup only)
 │   └── openapi.ts                    # OpenAPI spec rendered at /api/swagger
+├── public/
+│   └── logo.png                      # İstanbul Üniversitesi logo, served at /logo.png (shown in the header)
 ├── migrations/                       # Plain SQL database migrations, applied in number order
 │   ├── 001_create_users.up.sql       # Creates the users table
 │   ├── 001_create_users.down.sql     # Drops it again
@@ -187,7 +206,7 @@ alumni/
 ├── next-env.d.ts                     # Next.js TypeScript types (auto-generated)
 ├── eslint.config.mjs                 # Linting rules
 ├── postcss.config.mjs                # Loads Tailwind CSS
-├── Dockerfile                        # Builds the app and runs it in production mode (npm start) on port 3000
+├── Dockerfile                        # Builds the app and runs it in production mode (npm start) on port 3000 (copies public/ for the logo)
 ├── docker-compose.yml                # `docker compose up`: db (port 5432, pgdata volume) → migrate (runs once) → app (port 3000, no volume); seed (on demand, "seed" profile)
 ├── .dockerignore                     # Keeps node_modules, .next, .git, .env files out of the image
 ├── .env.example                      # Development defaults for the database settings (copy to .env to change them)
@@ -250,12 +269,13 @@ Route / Page / Server Action  →  Controller  →  Model  →  lib/db.ts  →  
 | Job posting **Delete** button | Server Action `deleteJobPostingAction` in `app/jobs/actions.ts` | `JobPostingController.delete` | `lib/models/jobPosting.ts` |
 | **Add application** / **Update** (status) / **Remove** on `/jobs/{id}` | Server Actions `createApplicationAction` / `updateApplicationStatusAction` / `deleteApplicationAction` in `app/jobs/actions.ts` | `ApplicationController.createForJob` / `updateStatus` / `delete` | `lib/models/application.ts` |
 | The **Applications** section on `GET /users/{id}` | `app/users/[id]/page.tsx` → also renders `UserApplicationsView` | `ApplicationController.getAllForUser` | `lib/models/application.ts` |
+| `GET /applications` (and its **Update** / **Remove** buttons) | `app/applications/page.tsx` → renders `ApplicationListView`; the same Server Actions as `/jobs/{id}` (`updateApplicationStatusAction`, `deleteApplicationAction` in `app/jobs/actions.ts`) | `ApplicationController.getAll` / `updateStatus` / `delete` | `lib/models/application.ts` |
 
 | MVC role | In this project | Notes |
 |---|---|---|
-| **Model** | `lib/models/user.ts` — the User Model: async CRUD functions (`createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser`) that run **plain, parameterized SQL** on the `users` table. `lib/models/announcement.ts` — the Announcement Model, built the same way (`createAnnouncement`, `getAllAnnouncements`, `getAnnouncementById`, `replaceAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`) on the `announcements` table. `lib/models/jobPosting.ts` — the JobPosting Model (`createJobPosting`, `getAllJobPostings`, `getJobPostingById`, `updateJobPosting`, `deleteJobPosting`) on the `job_postings` table, with its rules in `validateJobPosting`, used by `ApiJobPostingController`; job postings have no owner. `lib/models/application.ts` — the Application Model (`createApplication`, `getAllApplications`, `getApplicationsByJobPostingId`, `getApplicationsByUserId`, `getApplicationById`, `updateApplicationStatus`, `deleteApplication`) on the `applications` join table, with its rules in `validateApplication` / `validateStatus`, used by `ApiApplicationController` and `ApplicationController`; for the pages it also has two **read-only joins**, `getApplicationsWithUsersByJobPostingId` (applicant name and email) and `getApplicationsWithJobPostingsByUserId` (job title and company). All four talk to PostgreSQL only through `query()` in `lib/db.ts` | No HTTP or Next.js code. The Models map `snake_case` columns to the `camelCase` fields the controllers and views use (e.g. `created_at` → `createdAt`), and return users in the same flat shape as before (`extra` jsonb fields side by side with the columns). Every query uses `$1, $2, …` parameters, never string concatenation, and `INSERT / UPDATE / DELETE … RETURNING` so one query does the job. |
+| **Model** | `lib/models/user.ts` — the User Model: async CRUD functions (`createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser`) that run **plain, parameterized SQL** on the `users` table. `lib/models/announcement.ts` — the Announcement Model, built the same way (`createAnnouncement`, `getAllAnnouncements`, `getAnnouncementById`, `replaceAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`) on the `announcements` table. `lib/models/jobPosting.ts` — the JobPosting Model (`createJobPosting`, `getAllJobPostings`, `getJobPostingById`, `updateJobPosting`, `deleteJobPosting`) on the `job_postings` table, with its rules in `validateJobPosting`, used by `ApiJobPostingController`; job postings have no owner. `lib/models/application.ts` — the Application Model (`createApplication`, `getAllApplications`, `getApplicationsByJobPostingId`, `getApplicationsByUserId`, `getApplicationById`, `updateApplicationStatus`, `deleteApplication`) on the `applications` join table, with its rules in `validateApplication` / `validateStatus`, used by `ApiApplicationController` and `ApplicationController`; for the pages it also has two **read-only joins**, `getApplicationsWithUsersByJobPostingId` (applicant name and email), `getApplicationsWithJobPostingsByUserId` (job title and company) and `getAllApplicationsWithDetails` (both, for `/applications`). All four talk to PostgreSQL only through `query()` in `lib/db.ts` | No HTTP or Next.js code. The Models map `snake_case` columns to the `camelCase` fields the controllers and views use (e.g. `created_at` → `createdAt`), and return users in the same flat shape as before (`extra` jsonb fields side by side with the columns). Every query uses `$1, $2, …` parameters, never string concatenation, and `INSERT / UPDATE / DELETE … RETURNING` so one query does the job. |
 | **Controller** | `lib/controllers/ApiUserController.ts` and `lib/controllers/UserController.ts`, plus the `route.ts` files, pages and Server Actions that call them. `lib/controllers/ApiAnnouncementController.ts` and `lib/controllers/AnnouncementController.ts` for announcements, called by the `app/api/announcements/` routes and the `app/announcements/` pages. `lib/controllers/JobPostingController.ts` and `lib/controllers/ApplicationController.ts` for the `app/jobs/` pages (and the Applications section on `/users/{id}`); unlike the user and announcement controllers they hold no rules — they turn the Models' results into `{ error }` messages | Validation and request handling live in the controllers; they `await` the async Models. Database errors are turned into clear messages by `lib/controllers/databaseErrors.ts` (a 400 when the data caused it, otherwise a generic 500 for the API or a friendly `{ error }` for the pages, with the real error logged on the server only). The `route.ts` files, pages and the `actions.ts` files are thin: they call the matching controller function and pass the result on. |
-| **View** | `lib/views/users/` (`UserListView`, `UserDetailView`, `UserCreateForm`, `UserEditForm`, `DeleteUserButton`), `lib/views/announcements/` (`AnnouncementListView`, `AnnouncementDetailView`, `AnnouncementCreateForm`, `AnnouncementEditForm`, `DeleteAnnouncementButton`), `lib/views/jobs/` (`JobPostingListView`, `JobPostingDetailView`, `JobPostingCreateForm`, `JobPostingEditForm`, `DeleteJobPostingButton`), `lib/views/applications/` (`JobApplicationsView`, `ApplicationCreateForm`, `ApplicationStatusForm`, `DeleteApplicationButton`, `UserApplicationsView`), `page.tsx` files and `layout.tsx`, plus the JSON bodies the API returns | The components in `lib/views/` contain only markup and Tailwind classes: they get data and Server Actions through props and never call a controller or the Model. The `app/users/` and `app/announcements/` pages fetch the data from `UserController` and hand it to the views. For the API there is no separate view file — `NextResponse.json(...)` in `ApiUserController` *is* the view. |
+| **View** | `lib/views/users/` (`UserListView`, `UserDetailView`, `UserCreateForm`, `UserEditForm`, `DeleteUserButton`), `lib/views/announcements/` (`AnnouncementListView`, `AnnouncementDetailView`, `AnnouncementCreateForm`, `AnnouncementEditForm`, `DeleteAnnouncementButton`), `lib/views/jobs/` (`JobPostingListView`, `JobPostingDetailView`, `JobPostingCreateForm`, `JobPostingEditForm`, `DeleteJobPostingButton`), `lib/views/applications/` (`JobApplicationsView`, `ApplicationListView`, `ApplicationCreateForm`, `ApplicationStatusForm`, `DeleteApplicationButton`, `UserApplicationsView`), the shared pieces in `lib/views/ui/` (Button, Card, Badge, PageHeader, Table, Field, …) and the design tokens in `app/globals.css`, `page.tsx` files and `layout.tsx`, plus the JSON bodies the API returns | The components in `lib/views/` contain only markup and Tailwind classes: they get data and Server Actions through props and never call a controller or the Model. The `app/users/` and `app/announcements/` pages fetch the data from `UserController` and hand it to the views. For the API there is no separate view file — `NextResponse.json(...)` in `ApiUserController` *is* the view. |
 
 The mapping is loose in a few places. Next.js itself does the job of a router/front controller (matching a URL to a file), and `/hello`, `/sum` and `/api/health` are small `route.ts` files that do their own work without a Model.
 
@@ -347,7 +367,7 @@ Deleting a user doesn't delete any job posting (postings have no owner). Users a
 
 #### Applications
 
-**Pages (ApplicationController)** — the **Applications** section on a job posting's page, and a read-only one on a user's page:
+**Pages (ApplicationController)** — the **Applications** section on a job posting's page, a read-only one on a user's page, and the **`/applications`** page:
 
 | Method / action | URL | CRUD |
 |---|---|---|
@@ -356,6 +376,8 @@ Deleting a user doesn't delete any job posting (postings have no owner). Users a
 | Server Action `updateApplicationStatusAction` (form `POST`) | `/jobs/{id}` | **Update** — the status only (`pending`, `accepted`, `rejected`) |
 | Server Action `deleteApplicationAction` (form `POST`) | `/jobs/{id}` | **Delete** — the Remove button (asks for confirmation) |
 | `GET` | `/users/{id}` | **Read** — the job postings this user applied to: title (links to `/jobs/{id}`), company, status, date |
+| `GET` | `/applications` | **Read** — every application, newest first: applicant (links to `/users/{id}`) and email, job posting (links to `/jobs/{id}`) and company, status badge, date; an empty state when there are none |
+| Server Actions `updateApplicationStatusAction` / `deleteApplicationAction` (form `POST`) | `/applications` | **Update** the status / **Delete** — the same actions (and confirmation) as on `/jobs/{id}` |
 
 **API (ApiApplicationController)** — a user **applies to** a job posting; `applications` is the join table between users and job postings (**many-to-many**, see [ddd.md](ddd.md#-applications--implemented-migration-005)). Bodies can be JSON or form-data; `status` is `pending` (the default), `accepted` or `rejected`:
 
@@ -379,7 +401,7 @@ Both sides go through the same Announcement Model, so a change made on one side 
 alumni/
 ├── app/
 │   ├── layout.tsx                    [View]        root HTML layout around every page
-│   ├── globals.css                   [View]        global styles
+│   ├── globals.css                   [View]        global styles + design tokens
 │   ├── favicon.ico                   [View]        tab icon
 │   ├── page.tsx                      [View]        /
 │   ├── about/page.tsx                [View]        /about
@@ -393,6 +415,7 @@ alumni/
 │   ├── announcements/[id]/page.tsx   [Page]        GET /announcements/{id} → AnnouncementController, rendered by lib/views
 │   ├── announcements/[id]/edit/page.tsx  [Page]    GET /announcements/{id}/edit → AnnouncementController, rendered by lib/views
 │   ├── announcements/[id]/not-found.tsx  [View]    "Announcement not found" (404)
+│   ├── applications/page.tsx         [Page]        GET /applications → ApplicationController, rendered by lib/views
 │   ├── jobs/page.tsx                 [Page]        GET /jobs      → JobPostingController, rendered by lib/views
 │   ├── jobs/actions.ts               [Action]      job postings + applications → JobPostingController, ApplicationController
 │   ├── jobs/new/page.tsx             [Page]        GET /jobs/new  rendered by lib/views
@@ -453,6 +476,8 @@ alumni/
 │   ├── views/applications/ApplicationStatusForm.tsx   [View]  status dropdown + Update
 │   ├── views/applications/DeleteApplicationButton.tsx [View]  Remove button with confirmation
 │   ├── views/applications/UserApplicationsView.tsx    [View]  a user's applications (read-only)
+│   ├── views/applications/ApplicationListView.tsx     [View]  table on /applications
+│   ├── views/ui/                     [View]        shared UI pieces (Button, Card, Badge, PageHeader, Table, Field, …)
 │   └── openapi.ts                    [Other]       API documentation (OpenAPI spec)
 └── config files                      [Config]      package.json, next.config.ts, tsconfig.json, …
 ```
@@ -460,10 +485,10 @@ alumni/
 | File / folder | What it does | MVC role |
 |---|---|---|
 | `app/` | All routes. Each folder is a URL segment; `page.tsx` = a page, `route.ts` = an API endpoint | — (routing) |
-| `app/layout.tsx` | Root `<html>`/`<body>` wrapper, fonts and page metadata shared by every page | View |
-| `app/globals.css` | Tailwind CSS import and global colours / fonts | View |
+| `app/layout.tsx` | Root `<html>`/`<body>` wrapper, fonts and page metadata shared by every page; renders the site header (`SiteHeader`) above every page | View |
+| `app/globals.css` | Tailwind CSS import and the **design tokens** (`@theme`): brand colors from the logo, neutrals, danger, radius, shadow, fonts, plus the page background and the green keyboard-focus ring. The only place colors are defined | View |
 | `app/favicon.ico` | Browser tab icon | View |
-| `app/page.tsx` | `GET /` — temporary homepage with links to **Users**, **Announcements** and **Jobs** | View |
+| `app/page.tsx` | `GET /` — temporary homepage with cards linking to **Users**, **Announcements**, **Jobs** and **Applications** | View |
 | `app/about/page.tsx` | `GET /about` — temporary about page | View |
 | `app/users/page.tsx` | `GET /users` — calls `UserController.getAll()` and renders `UserCreateForm` above `UserListView`. Renders on every request (`connection()`), so new users always show | Page (Route → Controller → View) |
 | `app/users/actions.ts` | The three Server Actions behind the page forms. `createUserAction` → `UserController.create`, returns the error or a success message. `updateUserAction` → `UserController.update`, returns the error or redirects to `/users/{id}`. `deleteUserAction` → `UserController.delete`, returns "not found" or redirects to `/users`. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
@@ -481,6 +506,7 @@ alumni/
 | `app/jobs/[id]/page.tsx` | `GET /jobs/{id}` — calls `JobPostingController.getById(id)`, `ApplicationController.getAllForJob` and `UserController.getAll` (for the dropdown) and renders `JobPostingDetailView` + `JobApplicationsView`; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
 | `app/jobs/[id]/edit/page.tsx` | `GET /jobs/{id}/edit` — calls `JobPostingController.getById(id)` and renders `JobPostingEditForm` and a Delete button; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
 | `app/jobs/[id]/not-found.tsx` | The "Job posting not found" page, returned with HTTP 404 for `/jobs/{id}` and `/jobs/{id}/edit` | View |
+| `app/applications/page.tsx` | `GET /applications` — calls `ApplicationController.getAll()` and renders `ApplicationListView` with the status and remove Server Actions from `app/jobs/actions.ts`. Renders on every request (`connection()`) | Page (Route → Controller → View) |
 | `app/hello/route.ts` | `GET /hello` — returns plain text `Hello, World!` | Controller (no Model) |
 | `app/hello/[name]/route.ts` | `GET /hello/{name}` — reads the `name` URL parameter, returns `Hello, {name}!` | Controller (no Model) |
 | `app/sum/[number1]/[number2]/route.ts` | `GET /sum/{a}/{b}` — validates two URL parameters as numbers and returns their sum, or a 400 error | Controller (no Model) |
@@ -498,7 +524,7 @@ alumni/
 | `app/api/jobs/route.ts`, `app/api/jobs/[id]/route.ts` | `GET` / `POST /api/jobs`, and `GET` / `PATCH` / `DELETE /api/jobs/{id}`, each a one-line call to `ApiJobPostingController` (no PUT) | Route → Controller |
 | `lib/controllers/AnnouncementController.ts` | Page-side announcement controller: `create`, `getAll`, `getById`, `update`, `delete`. Takes plain arguments and returns `{ announcement }`, `{ announcements }`, `{ id }` or `{ error }` — no `Request` / `NextResponse`. Also exports the shared validation rule (`validateAnnouncement`) and id check (`parseId`). Used by the `/announcements` pages | Controller |
 | `lib/controllers/JobPostingController.ts` | Page-side job posting controller: `create`, `getAll`, `getById`, `update`, `delete`. Takes plain arguments and returns `{ jobPosting }`, `{ jobPostings }`, `{ id }` or `{ error }` (the JobPosting Model's message, or a friendly one if saving failed). No rules of its own. Used by the `/jobs` pages | Controller |
-| `lib/controllers/ApplicationController.ts` | Page-side application controller: `createForJob`, `getAllForJob` (with each applicant's name and email), `getAllForUser` (with each job posting's title and company), `updateStatus`, `delete`; also `STATUSES` for the dropdowns. Returns plain objects or `{ error }` ("User already applied to this job posting" for a second application). No rules of its own. Used by `/jobs/{id}` and `/users/{id}` | Controller |
+| `lib/controllers/ApplicationController.ts` | Page-side application controller: `getAll` (every application with its applicant and job posting, for `/applications`), `createForJob`, `getAllForJob` (with each applicant's name and email), `getAllForUser` (with each job posting's title and company), `updateStatus`, `delete`; also `STATUSES` for the dropdowns. Returns plain objects or `{ error }` ("User already applied to this job posting" for a second application). No rules of its own. Used by `/jobs/{id}` and `/users/{id}` | Controller |
 | `lib/views/users/UserListView.tsx` | Receives `users` and the delete action as props and renders the table (id, name, email, department, age) with **View**, **Edit** and **Delete** for each row; shows a short message when the list is empty | View |
 | `lib/views/users/UserDetailView.tsx` | Receives one `user` and the delete action; shows every field, an **Edit** link, a **Delete** button and a link back to the list | View |
 | `lib/views/users/UserCreateForm.tsx` | Receives the Server Action as a prop and renders the form (name required, email, age). Shows the action's validation error or success message, keeps typed values after an error, and disables the button while saving. A Client Component only because React's `useActionState` runs in the browser | View |
@@ -520,6 +546,9 @@ alumni/
 | `lib/views/applications/ApplicationStatusForm.tsx` | A status dropdown (`pending`, `accepted`, `rejected`) with an **Update** button for one application; shows the action's error. Client Component (`useActionState`) | View |
 | `lib/views/applications/DeleteApplicationButton.tsx` | A small form with a **Remove** button: asks "Remove …'s application?" in the browser, runs the delete action, and shows its error. Client Component | View |
 | `lib/views/applications/UserApplicationsView.tsx` | The read-only **Applications** section of `/users/{id}`: job title (linking to `/jobs/{id}`), company, status and date for each application | View |
+| `lib/views/applications/ApplicationListView.tsx` | The table on `/applications`: applicant (name → `/users/{id}`, email), job posting (title → `/jobs/{id}`, company), `StatusBadge`, date, and the same `ApplicationStatusForm` / `DeleteApplicationButton` as on a job posting's page; an empty state when there are none | View |
+| `lib/views/ui/` | Shared UI pieces used by every view and page, so no long class lists are repeated: `Button` / `ButtonLink` (primary, secondary, danger), `Card`, `Badge` / `StatusBadge`, `PageHeader`, `PageContainer`, `Section`, `Table` (`Table`, `TableHead`, `Th`, `TableBody`, `Tr`, `Td`), `Field` (`Field`, `Input`, `Textarea`, `Select`, `FormMessage`), `EmptyState`, `TextLink`, `SiteHeader` and `NavLinks`. Markup and theme-token classes only | View |
+| `public/logo.png` | The İstanbul Üniversitesi logo (unchanged), shown in the header with `next/image` (40 × 40, alt "İstanbul Üniversitesi logo") | View (static file) |
 | `lib/db.ts` | One shared `pg` connection pool, created lazily on the first query (so `npm run build` works without a database) and cached on `globalThis` (so dev hot reloads reuse it), plus the `query(text, params)` helper the Models use. Throws a clear error if `DATABASE_URL` is missing, and never logs the connection string | Model (data access) |
 | `lib/controllers/databaseErrors.ts` | Maps PostgreSQL error codes (e.g. `23505` unique violation, `23503` foreign key, `23514` check, `22003` out of range) to clear 400 messages; anything else becomes `500 {"error": "Internal server error"}` (API) or a friendly message (pages), logged on the server | Controller (helper) |
 | `lib/models/user.ts` | The User Model: `User` type and async CRUD functions `createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser` in plain, parameterized SQL on the `users` table. `name`, `email`, `age`, `department` go to their columns, every other field to the `extra` jsonb column; users are returned flat, as before. No `Request` or `NextResponse` | Model |
@@ -592,6 +621,30 @@ The code works, but a few things will change as the project grows:
 - **Validation lives in the controller layer, not the Model.** The "`name` is required" and "`age` must be a whole number" rules are defined once (in `UserController`, and reused by `ApiUserController`). The database enforces its own constraints too (`NOT NULL`, non-blank checks, `age >= 0`), which the controllers report as a 400.
 - **Users' timestamps aren't shown.** The `users` table has `created_at` / `updated_at` (and `updated_at` is set on every change), but users are still returned in their old shape, without them.
 - **API docs are separate from the code.** `lib/openapi.ts` is written by hand, so it has to be updated manually whenever a route changes (see [📘 API Documentation](#-api-documentation)).
+
+---
+
+## 🎨 Design and theme
+
+The whole app shares one calm, clean design based on the **İstanbul Üniversitesi** colors, read from the pixels of the logo in `public/logo.png`:
+
+| Token | Value | Used for |
+|---|---|---|
+| `--color-primary` | `#00733e` (logo green) | Buttons, links, the focus ring, the active navigation item. White text on it has a contrast of about 6:1 |
+| `--color-primary-hover` | `#005c32` | Hover / pressed green |
+| `--color-accent` | `#fdd525` (logo yellow) | Only small highlights: the thin line at the top of the header and the "pending" badge |
+| `--color-canvas`, `--color-surface`, `--color-subtle`, `--color-border` | light grays and white | Page background, cards and tables, table headers, borders |
+| `--color-ink`, `--color-muted` | near-black and gray | Main and secondary text (both above 4.5:1 on white) |
+| `--color-danger` | `#b42318` | Delete / Remove buttons, error messages, the "rejected" badge |
+| `--radius-card`, `--radius-control`, `--shadow-card` | `1rem`, `0.625rem`, a very light shadow | Rounded cards and controls |
+
+**Shared pieces.** Pages and views never repeat long class lists: they use the components in `lib/views/ui/` — `Button` / `ButtonLink` (primary, secondary, danger), `Card`, `Badge` and `StatusBadge` (pending = yellow, accepted = green, rejected = red), `PageHeader`, `Table`, `Field` / `Input` / `Select` / `FormMessage`, `EmptyState` — and the header (`SiteHeader`, with the logo through `next/image` and the navigation, which highlights the current page and wraps on a phone).
+
+**Accessibility.** Every input has a label, buttons are real `<button>`s, error messages use `role="alert"`, the current navigation link has `aria-current="page"`, every link and button gets a visible green focus ring from the keyboard, and tables scroll inside their card on a narrow screen, so no page scrolls sideways.
+
+### How to change the theme
+
+All colors, fonts, the corner radius and the shadow are **design tokens** in one place, the `@theme` block at the top of [`app/globals.css`](app/globals.css). Tailwind 4 turns each token into utilities (`--color-primary` → `bg-primary`, `text-primary`, …; `--radius-card` → `rounded-card`; `--shadow-card` → `shadow-card`), and the shared UI pieces only use those. To change the look of the whole app, edit the values there — for example set `--color-primary` to another color — and every button, link, badge and focus ring follows. No page or view contains a hard-coded color.
 
 ---
 
@@ -917,6 +970,8 @@ Job postings and their applications can also be managed as HTML pages (not in Sw
 | `POST` | `/jobs/{id}` | Sent by the Delete button and the Applications forms (add, change status, remove) (Server Actions) — browser only |
 | `GET` | `/jobs/{id}/edit` | Edit form, pre-filled, or a "Job posting not found" page (404) |
 | `POST` | `/jobs/{id}/edit` | Sent by the edit form or its Delete button (Server Actions) — browser only |
+| `GET` | `/applications` | Page listing every application (applicant, job posting, status, date) |
+| `POST` | `/applications` | Sent by a row's Update or Remove button (Server Actions) — browser only |
 
 The `/users/{id}` page also lists the job postings that user applied to (read-only). From Postman or scripts, use `/api/jobs` and the applications routes.
 

@@ -27,6 +27,8 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/next.config.ts ./next.config.ts
+# Static files served as-is from the site root, e.g. /logo.png (the university logo in the header)
+COPY --from=builder /app/public ./public
 
 # Database migrations, the migration runner, the seed script and the factories (all in scripts/),
 # used by the "migrate" and "seed" services in docker-compose.yml

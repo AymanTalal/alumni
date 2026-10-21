@@ -1,5 +1,8 @@
-import Link from "next/link";
 import type { User } from "@/lib/models/user";
+import { ButtonLink } from "../ui/Button";
+import EmptyState from "../ui/EmptyState";
+import { Table, TableBody, TableHead, Td, Th, Tr } from "../ui/Table";
+import TextLink from "../ui/TextLink";
 import DeleteUserButton, { type DeleteUserState } from "./DeleteUserButton";
 
 // View: renders a list of users as a table, with View / Edit / Delete for each row.
@@ -17,50 +20,48 @@ type Props = {
 export default function UserListView({ users, deleteAction }: Props) {
   if (users.length === 0) {
     return (
-      <p className="mt-6 text-gray-600">
-        No users yet. Add one with the form above, or with <code>POST /api/users</code>.
-      </p>
+      <EmptyState title="No users yet.">
+        Add one with the form above, or with <code>POST /api/users</code>.
+      </EmptyState>
     );
   }
 
   return (
-    <table className="mt-6 w-full border-collapse text-left">
-      <thead>
-        <tr className="border-b border-gray-300">
-          <th className="py-2 pr-4">ID</th>
-          <th className="py-2 pr-4">Name</th>
-          {COLUMNS.map((column) => (
-            <th key={column} className="py-2 pr-4 capitalize">
-              {column}
-            </th>
-          ))}
-          <th className="py-2 pr-4">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHead>
+        <Th>ID</Th>
+        <Th>Name</Th>
+        {COLUMNS.map((column) => (
+          <Th key={column}>{column}</Th>
+        ))}
+        <Th>Actions</Th>
+      </TableHead>
+      <TableBody>
         {users.map((user) => (
-          <tr key={user.id} className="border-b border-gray-200 align-top">
-            <td className="py-2 pr-4">{user.id}</td>
-            <td className="py-2 pr-4">{user.name}</td>
+          <Tr key={user.id}>
+            <Td className="text-muted">{user.id}</Td>
+            <Td>
+              <TextLink href={`/users/${user.id}`}>{user.name}</TextLink>
+            </Td>
             {COLUMNS.map((column) => (
-              <td key={column} className="py-2 pr-4">
+              <Td key={column}>
                 {user[column] === undefined || user[column] === "" ? "—" : user[column]}
-              </td>
+              </Td>
             ))}
-            <td className="py-2 pr-4">
-              <div className="flex gap-3">
-                <Link href={`/users/${user.id}`} className="text-blue-600 hover:underline">
+            <Td>
+              <div className="flex flex-wrap items-start gap-2">
+                <ButtonLink href={`/users/${user.id}`} variant="secondary" size="sm">
                   View
-                </Link>
-                <Link href={`/users/${user.id}/edit`} className="text-blue-600 hover:underline">
+                </ButtonLink>
+                <ButtonLink href={`/users/${user.id}/edit`} variant="secondary" size="sm">
                   Edit
-                </Link>
+                </ButtonLink>
                 <DeleteUserButton userId={user.id} userName={user.name} action={deleteAction} />
               </div>
-            </td>
-          </tr>
+            </Td>
+          </Tr>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }

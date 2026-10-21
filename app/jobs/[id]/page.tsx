@@ -5,6 +5,7 @@ import * as JobPostingController from "@/lib/controllers/JobPostingController";
 import * as UserController from "@/lib/controllers/UserController";
 import JobApplicationsView from "@/lib/views/applications/JobApplicationsView";
 import JobPostingDetailView from "@/lib/views/jobs/JobPostingDetailView";
+import PageContainer from "@/lib/views/ui/PageContainer";
 import {
   createApplicationAction,
   deleteApplicationAction,
@@ -36,7 +37,7 @@ export default async function JobPostingPage({ params }: PageProps<"/jobs/[id]">
   const { users } = await UserController.getAll();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+    <PageContainer>
       <JobPostingDetailView jobPosting={result.jobPosting} deleteAction={deleteJobPostingAction} />
       <JobApplicationsView
         jobPostingId={result.jobPosting.id}
@@ -47,6 +48,6 @@ export default async function JobPostingPage({ params }: PageProps<"/jobs/[id]">
         updateStatusAction={updateApplicationStatusAction}
         deleteAction={deleteApplicationAction}
       />
-    </main>
+    </PageContainer>
   );
 }

@@ -1,6 +1,10 @@
-import Link from "next/link";
 import type { ApplicationWithJobPosting } from "@/lib/models/application";
 import { formatDate } from "../announcements/formatDate";
+import { StatusBadge } from "../ui/Badge";
+import EmptyState from "../ui/EmptyState";
+import Section from "../ui/Section";
+import { Table, TableBody, TableHead, Td, Th, Tr } from "../ui/Table";
+import TextLink from "../ui/TextLink";
 
 // View: the read-only "Applications" section of a user's page: the job postings this user applied
 // to (title, company, status, date), each linking to /jobs/{id}. Markup and styling only, no data
@@ -13,42 +17,37 @@ type Props = {
 
 export default function UserApplicationsView({ applications }: Props) {
   return (
-    <section className="mt-10">
-      <h2 className="text-2xl font-semibold">Applications</h2>
-
+    <Section title="Applications">
       {applications.length === 0 ? (
-        <p className="mt-2 text-gray-600">This user hasn&apos;t applied to any job postings yet.</p>
+        <EmptyState title="This user hasn't applied to any job postings yet.">
+          Applications are added on a job posting&apos;s page.
+        </EmptyState>
       ) : (
-        <table className="mt-4 w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-gray-300">
-              <th className="py-2 pr-4">Job posting</th>
-              <th className="py-2 pr-4">Company</th>
-              <th className="py-2 pr-4">Status</th>
-              <th className="py-2 pr-4">Applied</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHead>
+            <Th>Job posting</Th>
+            <Th>Company</Th>
+            <Th>Status</Th>
+            <Th>Applied</Th>
+          </TableHead>
+          <TableBody>
             {applications.map((application) => (
-              <tr key={application.id} className="border-b border-gray-200 align-top">
-                <td className="py-2 pr-4">
-                  <Link
-                    href={`/jobs/${application.jobPosting.id}`}
-                    className="font-medium text-blue-600 hover:underline"
-                  >
+              <Tr key={application.id}>
+                <Td>
+                  <TextLink href={`/jobs/${application.jobPosting.id}`}>
                     {application.jobPosting.title}
-                  </Link>
-                </td>
-                <td className="py-2 pr-4">{application.jobPosting.company || "—"}</td>
-                <td className="py-2 pr-4">{application.status}</td>
-                <td className="py-2 pr-4 text-sm text-gray-600">
-                  {formatDate(application.createdAt)}
-                </td>
-              </tr>
+                  </TextLink>
+                </Td>
+                <Td>{application.jobPosting.company || "—"}</Td>
+                <Td>
+                  <StatusBadge status={application.status} />
+                </Td>
+                <Td className="whitespace-nowrap text-muted">{formatDate(application.createdAt)}</Td>
+              </Tr>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
-    </section>
+    </Section>
   );
 }
