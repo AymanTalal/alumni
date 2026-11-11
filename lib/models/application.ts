@@ -164,13 +164,6 @@ export function validateApplication(
   return { data: { userId, jobPostingId, status } };
 }
 
-// Real database errors are never swallowed: log them on the server and throw them on,
-// so the controller can turn them into a 500 (like errors from the other models).
-function logAndRethrow(error: unknown): never {
-  console.error("Application model database error:", error);
-  throw error;
-}
-
 // The PostgreSQL error code and constraint name of a database error (both undefined otherwise)
 function databaseErrorOf(error: unknown): { code?: unknown; constraint?: unknown } {
   return typeof error === "object" && error !== null ? error : {};
@@ -204,20 +197,16 @@ export async function createApplication(data: ApplicationData): Promise<Applicat
     if (code === "23505" && constraint === UNIQUE_USER_AND_JOB_POSTING) {
       return alreadyApplied(userId, jobPostingId);
     }
-    logAndRethrow(error);
+    throw error;
   }
 }
 
 // Returns every application, newest first (an empty list if there are none).
 export async function getAllApplications(): Promise<{ applications: Application[] }> {
-  try {
-    const rows = await query<ApplicationRow>(
-      `SELECT ${COLUMNS} FROM applications ORDER BY created_at DESC, id DESC`,
-    );
-    return { applications: rows.map(toApplication) };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query<ApplicationRow>(
+    `SELECT ${COLUMNS} FROM applications ORDER BY created_at DESC, id DESC`,
+  );
+  return { applications: rows.map(toApplication) };
 }
 
 // Returns the applications to one job posting (its applicants), newest first, or
@@ -228,20 +217,16 @@ export async function getApplicationsByJobPostingId(
   const postingId = parseId(jobPostingId);
   if (postingId === null) return invalidId("Job posting", jobPostingId);
 
-  try {
-    const posting = await query("SELECT 1 FROM job_postings WHERE id = $1", [postingId]);
-    if (posting.length === 0) return jobPostingNotFound(jobPostingId);
+  const posting = await query("SELECT 1 FROM job_postings WHERE id = $1", [postingId]);
+  if (posting.length === 0) return jobPostingNotFound(jobPostingId);
 
-    const rows = await query<ApplicationRow>(
-      `SELECT ${COLUMNS} FROM applications
-       WHERE job_posting_id = $1
-       ORDER BY created_at DESC, id DESC`,
-      [postingId],
-    );
-    return { applications: rows.map(toApplication) };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query<ApplicationRow>(
+    `SELECT ${COLUMNS} FROM applications
+     WHERE job_posting_id = $1
+     ORDER BY created_at DESC, id DESC`,
+    [postingId],
+  );
+  return { applications: rows.map(toApplication) };
 }
 
 // Returns one user's applications (what they applied to), newest first, or "user-not-found"
@@ -252,20 +237,16 @@ export async function getApplicationsByUserId(
   const applicantId = parseId(userId);
   if (applicantId === null) return invalidId("User", userId);
 
-  try {
-    const user = await query("SELECT 1 FROM users WHERE id = $1", [applicantId]);
-    if (user.length === 0) return userNotFound(userId);
+  const user = await query("SELECT 1 FROM users WHERE id = $1", [applicantId]);
+  if (user.length === 0) return userNotFound(userId);
 
-    const rows = await query<ApplicationRow>(
-      `SELECT ${COLUMNS} FROM applications
-       WHERE user_id = $1
-       ORDER BY created_at DESC, id DESC`,
-      [applicantId],
-    );
-    return { applications: rows.map(toApplication) };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query<ApplicationRow>(
+    `SELECT ${COLUMNS} FROM applications
+     WHERE user_id = $1
+     ORDER BY created_at DESC, id DESC`,
+    [applicantId],
+  );
+  return { applications: rows.map(toApplication) };
 }
 
 // ---- Read-only joins for the pages ------------------------------------------------------------
@@ -293,31 +274,27 @@ export async function getApplicationsWithUsersByJobPostingId(
   const postingId = parseId(jobPostingId);
   if (postingId === null) return invalidId("Job posting", jobPostingId);
 
-  try {
-    const posting = await query("SELECT 1 FROM job_postings WHERE id = $1", [postingId]);
-    if (posting.length === 0) return jobPostingNotFound(jobPostingId);
+  const posting = await query("SELECT 1 FROM job_postings WHERE id = $1", [postingId]);
+  if (posting.length === 0) return jobPostingNotFound(jobPostingId);
 
-    const rows = await query<ApplicationRow & { user_name: string; user_email: string | null }>(
-      `SELECT ${JOINED_COLUMNS}, u.name AS user_name, u.email AS user_email
-       FROM applications a
-       JOIN users u ON u.id = a.user_id
-       WHERE a.job_posting_id = $1
-       ORDER BY a.created_at DESC, a.id DESC`,
-      [postingId],
-    );
-    return {
-      applications: rows.map((row) => ({
-        ...toApplication(row),
-        user: {
-          id: Number(row.user_id),
-          name: row.user_name,
-          ...(row.user_email !== null && { email: row.user_email }),
-        },
-      })),
-    };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query<ApplicationRow & { user_name: string; user_email: string | null }>(
+    `SELECT ${JOINED_COLUMNS}, u.name AS user_name, u.email AS user_email
+     FROM applications a
+     JOIN users u ON u.id = a.user_id
+     WHERE a.job_posting_id = $1
+     ORDER BY a.created_at DESC, a.id DESC`,
+    [postingId],
+  );
+  return {
+    applications: rows.map((row) => ({
+      ...toApplication(row),
+      user: {
+        id: Number(row.user_id),
+        name: row.user_name,
+        ...(row.user_email !== null && { email: row.user_email }),
+      },
+    })),
+  };
 }
 
 // Returns one user's applications, each with the job posting's id, title and company,
@@ -328,31 +305,27 @@ export async function getApplicationsWithJobPostingsByUserId(
   const applicantId = parseId(userId);
   if (applicantId === null) return invalidId("User", userId);
 
-  try {
-    const user = await query("SELECT 1 FROM users WHERE id = $1", [applicantId]);
-    if (user.length === 0) return userNotFound(userId);
+  const user = await query("SELECT 1 FROM users WHERE id = $1", [applicantId]);
+  if (user.length === 0) return userNotFound(userId);
 
-    const rows = await query<ApplicationRow & { job_title: string; job_company: string | null }>(
-      `SELECT ${JOINED_COLUMNS}, j.title AS job_title, j.company AS job_company
-       FROM applications a
-       JOIN job_postings j ON j.id = a.job_posting_id
-       WHERE a.user_id = $1
-       ORDER BY a.created_at DESC, a.id DESC`,
-      [applicantId],
-    );
-    return {
-      applications: rows.map((row) => ({
-        ...toApplication(row),
-        jobPosting: {
-          id: Number(row.job_posting_id),
-          title: row.job_title,
-          ...(row.job_company !== null && { company: row.job_company }),
-        },
-      })),
-    };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query<ApplicationRow & { job_title: string; job_company: string | null }>(
+    `SELECT ${JOINED_COLUMNS}, j.title AS job_title, j.company AS job_company
+     FROM applications a
+     JOIN job_postings j ON j.id = a.job_posting_id
+     WHERE a.user_id = $1
+     ORDER BY a.created_at DESC, a.id DESC`,
+    [applicantId],
+  );
+  return {
+    applications: rows.map((row) => ({
+      ...toApplication(row),
+      jobPosting: {
+        id: Number(row.job_posting_id),
+        title: row.job_title,
+        ...(row.job_company !== null && { company: row.job_company }),
+      },
+    })),
+  };
 }
 
 // An application together with both its applicant and its job posting (for /applications)
@@ -364,40 +337,36 @@ export type ApplicationWithDetails = ApplicationWithUser & ApplicationWithJobPos
 export async function getAllApplicationsWithDetails(): Promise<{
   applications: ApplicationWithDetails[];
 }> {
-  try {
-    const rows = await query<
-      ApplicationRow & {
-        user_name: string;
-        user_email: string | null;
-        job_title: string;
-        job_company: string | null;
-      }
-    >(
-      `SELECT ${JOINED_COLUMNS}, u.name AS user_name, u.email AS user_email,
-              j.title AS job_title, j.company AS job_company
-       FROM applications a
-       JOIN users u ON u.id = a.user_id
-       JOIN job_postings j ON j.id = a.job_posting_id
-       ORDER BY a.created_at DESC, a.id DESC`,
-    );
-    return {
-      applications: rows.map((row) => ({
-        ...toApplication(row),
-        user: {
-          id: Number(row.user_id),
-          name: row.user_name,
-          ...(row.user_email !== null && { email: row.user_email }),
-        },
-        jobPosting: {
-          id: Number(row.job_posting_id),
-          title: row.job_title,
-          ...(row.job_company !== null && { company: row.job_company }),
-        },
-      })),
-    };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query<
+    ApplicationRow & {
+      user_name: string;
+      user_email: string | null;
+      job_title: string;
+      job_company: string | null;
+    }
+  >(
+    `SELECT ${JOINED_COLUMNS}, u.name AS user_name, u.email AS user_email,
+            j.title AS job_title, j.company AS job_company
+     FROM applications a
+     JOIN users u ON u.id = a.user_id
+     JOIN job_postings j ON j.id = a.job_posting_id
+     ORDER BY a.created_at DESC, a.id DESC`,
+  );
+  return {
+    applications: rows.map((row) => ({
+      ...toApplication(row),
+      user: {
+        id: Number(row.user_id),
+        name: row.user_name,
+        ...(row.user_email !== null && { email: row.user_email }),
+      },
+      jobPosting: {
+        id: Number(row.job_posting_id),
+        title: row.job_title,
+        ...(row.job_company !== null && { company: row.job_company }),
+      },
+    })),
+  };
 }
 
 // Returns the application with this id, or "not-found".
@@ -405,15 +374,11 @@ export async function getApplicationById(id: number | string): Promise<Applicati
   const applicationId = parseId(id);
   if (applicationId === null) return invalidId("Application", id);
 
-  try {
-    const [row] = await query<ApplicationRow>(
-      `SELECT ${COLUMNS} FROM applications WHERE id = $1`,
-      [applicationId],
-    );
-    return row ? { application: toApplication(row) } : applicationNotFound(id);
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const [row] = await query<ApplicationRow>(
+    `SELECT ${COLUMNS} FROM applications WHERE id = $1`,
+    [applicationId],
+  );
+  return row ? { application: toApplication(row) } : applicationNotFound(id);
 }
 
 // Changes ONLY the status and refreshes updatedAt. The user and the job posting can never be
@@ -429,19 +394,15 @@ export async function updateApplicationStatus(
   const valid = validateStatus(status);
   if ("error" in valid) return valid;
 
-  try {
-    const [row] = await query<ApplicationRow>(
-      `UPDATE applications SET
-         status     = $2,
-         updated_at = now()
-       WHERE id = $1
-       RETURNING ${COLUMNS}`,
-      [applicationId, valid.status],
-    );
-    return row ? { application: toApplication(row) } : applicationNotFound(id);
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const [row] = await query<ApplicationRow>(
+    `UPDATE applications SET
+       status     = $2,
+       updated_at = now()
+     WHERE id = $1
+     RETURNING ${COLUMNS}`,
+    [applicationId, valid.status],
+  );
+  return row ? { application: toApplication(row) } : applicationNotFound(id);
 }
 
 // Removes the application. Returns true if it was deleted, false if no application had this id
@@ -452,12 +413,8 @@ export async function deleteApplication(
   const applicationId = parseId(id);
   if (applicationId === null) return invalidId("Application", id);
 
-  try {
-    const rows = await query("DELETE FROM applications WHERE id = $1 RETURNING id", [
-      applicationId,
-    ]);
-    return rows.length > 0;
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query("DELETE FROM applications WHERE id = $1 RETURNING id", [
+    applicationId,
+  ]);
+  return rows.length > 0;
 }

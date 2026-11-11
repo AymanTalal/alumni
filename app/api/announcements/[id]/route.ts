@@ -1,4 +1,5 @@
 import * as ApiAnnouncementController from "@/lib/controllers/ApiAnnouncementController";
+import { withExistingResource } from "@/lib/middleware";
 
 // GET    "/api/announcements/:id" → one announcement (JSON)
 // PUT    "/api/announcements/:id" → replace the whole announcement with form-data
@@ -9,18 +10,21 @@ import * as ApiAnnouncementController from "@/lib/controllers/ApiAnnouncementCon
 
 type Context = RouteContext<"/api/announcements/[id]">;
 
-export function GET(request: Request, context: Context) {
-  return ApiAnnouncementController.getById(request, context);
-}
+// Every handler goes through the API middleware line (lib/middleware): the logger, the error
+// handler (503 / 500 for unexpected errors), then the 404 guard, which answers 404 { error, reason }
+// without calling the handler if the announcement doesn't exist.
+export const GET = withExistingResource("announcement")((request: Request, context: Context) =>
+  ApiAnnouncementController.getById(request, context),
+);
 
-export function PUT(request: Request, context: Context) {
-  return ApiAnnouncementController.replace(request, context);
-}
+export const PUT = withExistingResource("announcement")((request: Request, context: Context) =>
+  ApiAnnouncementController.replace(request, context),
+);
 
-export function PATCH(request: Request, context: Context) {
-  return ApiAnnouncementController.update(request, context);
-}
+export const PATCH = withExistingResource("announcement")((request: Request, context: Context) =>
+  ApiAnnouncementController.update(request, context),
+);
 
-export function DELETE(request: Request, context: Context) {
-  return ApiAnnouncementController.delete(request, context);
-}
+export const DELETE = withExistingResource("announcement")((request: Request, context: Context) =>
+  ApiAnnouncementController.delete(request, context),
+);

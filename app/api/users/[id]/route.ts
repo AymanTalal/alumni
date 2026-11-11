@@ -1,4 +1,5 @@
 import * as ApiUserController from "@/lib/controllers/ApiUserController";
+import { withExistingResource } from "@/lib/middleware";
 
 // GET    "/api/users/:id" → one user (JSON)
 // PUT    "/api/users/:id" → replace the whole user with form-data
@@ -9,18 +10,21 @@ import * as ApiUserController from "@/lib/controllers/ApiUserController";
 
 type Context = RouteContext<"/api/users/[id]">;
 
-export function GET(request: Request, context: Context) {
-  return ApiUserController.getById(request, context);
-}
+// Every handler goes through the API middleware line (lib/middleware): the logger, the error
+// handler (503 / 500 for unexpected errors), then the 404 guard, which answers 404 { error, reason }
+// without calling the handler if the user doesn't exist.
+export const GET = withExistingResource("user")((request: Request, context: Context) =>
+  ApiUserController.getById(request, context),
+);
 
-export function PUT(request: Request, context: Context) {
-  return ApiUserController.replace(request, context);
-}
+export const PUT = withExistingResource("user")((request: Request, context: Context) =>
+  ApiUserController.replace(request, context),
+);
 
-export function PATCH(request: Request, context: Context) {
-  return ApiUserController.update(request, context);
-}
+export const PATCH = withExistingResource("user")((request: Request, context: Context) =>
+  ApiUserController.update(request, context),
+);
 
-export function DELETE(request: Request, context: Context) {
-  return ApiUserController.delete(request, context);
-}
+export const DELETE = withExistingResource("user")((request: Request, context: Context) =>
+  ApiUserController.delete(request, context),
+);

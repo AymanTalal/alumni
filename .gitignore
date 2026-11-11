@@ -8,3 +8,7 @@ node_modules
 .env
 .env.*
 !.env.example
+
+# log files (logs/error.log); only the empty folder's .gitkeep is kept
+/logs/*
+!/logs/.gitkeep

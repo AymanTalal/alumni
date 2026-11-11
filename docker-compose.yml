@@ -5,10 +5,9 @@
 #   seed    → (only with the "seed" profile) fills the database with sample data, then exits:
 #             docker compose --profile seed run --rm seed
 #
-# The app still keeps users and announcements in its own memory (no volume for the app),
-# so that data is lost whenever the app container is removed (see "The Forgetting Test" in README.md).
-# The database keeps its files in the "pgdata" volume, so they survive `docker compose down`.
-# The migrate service creates the tables, but the app doesn't use the database yet; that comes in the next step.
+# The app keeps no data in memory: it stores everything in PostgreSQL (the db service), whose files
+# live in the "pgdata" volume, so they survive `docker compose down` (see "The Forgetting Test" in README.md).
+# The migrate service creates the tables; the app reads and writes them with plain SQL (lib/db.ts).
 #
 # The ${VAR:-default} values below are local development defaults. To change them, copy
 # .env.example to .env (docker compose reads .env automatically). Never use them in production.
@@ -26,6 +25,10 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    volumes:
+      # Server errors (500 / 503) are appended to logs/error.log; this makes the file appear in the
+      # project's logs/ folder on your machine (it is git-ignored)
+      - ./logs:/app/logs
 
   # Same image as the app; runs `npm run migrate` (scripts/migrate.mjs up) once and exits.
   # Running it again is safe: already-applied migrations are skipped.

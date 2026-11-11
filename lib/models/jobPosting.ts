@@ -126,13 +126,6 @@ const postingNotFound = (id: number | string): JobPostingError => ({
   message: `Job posting with id "${id}" not found`,
 });
 
-// Real database errors are never swallowed: log them on the server and throw them on,
-// so the controller can turn them into a 500 (like errors from the other models).
-function logAndRethrow(error: unknown): never {
-  console.error("JobPosting model database error:", error);
-  throw error;
-}
-
 // ---- CRUD ------------------------------------------------------------------------------------
 
 // Adds a new posting (the database assigns the id and sets createdAt / updatedAt) and returns it.
@@ -140,29 +133,21 @@ export async function createJobPosting(data: JobPostingData): Promise<JobPosting
   const valid = validateJobPosting(data, { partial: false });
   if ("error" in valid) return valid;
 
-  try {
-    const [row] = await query<JobPostingRow>(
-      `INSERT INTO job_postings (title, company)
-       VALUES ($1, $2)
-       RETURNING ${COLUMNS}`,
-      [valid.data.title, valid.data.company ?? null],
-    );
-    return { jobPosting: toJobPosting(row) };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const [row] = await query<JobPostingRow>(
+    `INSERT INTO job_postings (title, company)
+     VALUES ($1, $2)
+     RETURNING ${COLUMNS}`,
+    [valid.data.title, valid.data.company ?? null],
+  );
+  return { jobPosting: toJobPosting(row) };
 }
 
 // Returns every job posting, newest first (an empty list if there are none).
 export async function getAllJobPostings(): Promise<{ jobPostings: JobPosting[] }> {
-  try {
-    const rows = await query<JobPostingRow>(
-      `SELECT ${COLUMNS} FROM job_postings ORDER BY created_at DESC, id DESC`,
-    );
-    return { jobPostings: rows.map(toJobPosting) };
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query<JobPostingRow>(
+    `SELECT ${COLUMNS} FROM job_postings ORDER BY created_at DESC, id DESC`,
+  );
+  return { jobPostings: rows.map(toJobPosting) };
 }
 
 // Returns the posting with this id, or "not-found".
@@ -170,14 +155,10 @@ export async function getJobPostingById(id: number | string): Promise<JobPosting
   const postingId = parseId(id);
   if (postingId === null) return invalidId(id);
 
-  try {
-    const [row] = await query<JobPostingRow>(`SELECT ${COLUMNS} FROM job_postings WHERE id = $1`, [
-      postingId,
-    ]);
-    return row ? { jobPosting: toJobPosting(row) } : postingNotFound(id);
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const [row] = await query<JobPostingRow>(`SELECT ${COLUMNS} FROM job_postings WHERE id = $1`, [
+    postingId,
+  ]);
+  return row ? { jobPosting: toJobPosting(row) } : postingNotFound(id);
 }
 
 // Changes only the fields given (title and/or company), keeps the rest, and refreshes updatedAt.
@@ -194,20 +175,16 @@ export async function updateJobPosting(
   if ("error" in valid) return valid;
   const { title, company } = valid.data;
 
-  try {
-    const [row] = await query<JobPostingRow>(
-      `UPDATE job_postings SET
-         title      = CASE WHEN $2 THEN $3 ELSE title END,
-         company    = CASE WHEN $4 THEN $5 ELSE company END,
-         updated_at = now()
-       WHERE id = $1
-       RETURNING ${COLUMNS}`,
-      [postingId, title !== undefined, title ?? null, company !== undefined, company ?? null],
-    );
-    return row ? { jobPosting: toJobPosting(row) } : postingNotFound(id);
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const [row] = await query<JobPostingRow>(
+    `UPDATE job_postings SET
+       title      = CASE WHEN $2 THEN $3 ELSE title END,
+       company    = CASE WHEN $4 THEN $5 ELSE company END,
+       updated_at = now()
+     WHERE id = $1
+     RETURNING ${COLUMNS}`,
+    [postingId, title !== undefined, title ?? null, company !== undefined, company ?? null],
+  );
+  return row ? { jobPosting: toJobPosting(row) } : postingNotFound(id);
 }
 
 // Removes the posting. Returns true if it was deleted, false if no posting had this id
@@ -218,10 +195,6 @@ export async function deleteJobPosting(
   const postingId = parseId(id);
   if (postingId === null) return invalidId(id);
 
-  try {
-    const rows = await query("DELETE FROM job_postings WHERE id = $1 RETURNING id", [postingId]);
-    return rows.length > 0;
-  } catch (error) {
-    logAndRethrow(error);
-  }
+  const rows = await query("DELETE FROM job_postings WHERE id = $1 RETURNING id", [postingId]);
+  return rows.length > 0;
 }

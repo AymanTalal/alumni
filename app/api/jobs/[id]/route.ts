@@ -1,4 +1,5 @@
 import * as ApiJobPostingController from "@/lib/controllers/ApiJobPostingController";
+import { withExistingResource } from "@/lib/middleware";
 
 // GET    "/api/jobs/:id" → one job posting (JSON)
 // PATCH  "/api/jobs/:id" → change only the fields sent (title, company)
@@ -8,14 +9,17 @@ import * as ApiJobPostingController from "@/lib/controllers/ApiJobPostingControl
 
 type Context = RouteContext<"/api/jobs/[id]">;
 
-export function GET(request: Request, context: Context) {
-  return ApiJobPostingController.getById(request, context);
-}
+// Every handler goes through the API middleware line (lib/middleware): the logger, the error
+// handler (503 / 500 for unexpected errors), then the 404 guard, which answers 404 { error, reason }
+// without calling the handler if the job posting doesn't exist.
+export const GET = withExistingResource("jobPosting")((request: Request, context: Context) =>
+  ApiJobPostingController.getById(request, context),
+);
 
-export function PATCH(request: Request, context: Context) {
-  return ApiJobPostingController.update(request, context);
-}
+export const PATCH = withExistingResource("jobPosting")((request: Request, context: Context) =>
+  ApiJobPostingController.update(request, context),
+);
 
-export function DELETE(request: Request, context: Context) {
-  return ApiJobPostingController.delete(request, context);
-}
+export const DELETE = withExistingResource("jobPosting")((request: Request, context: Context) =>
+  ApiJobPostingController.delete(request, context),
+);

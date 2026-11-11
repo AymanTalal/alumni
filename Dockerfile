@@ -35,6 +35,11 @@ COPY --from=builder /app/public ./public
 COPY migrations ./migrations
 COPY scripts ./scripts
 
+# Next.js writes its runtime cache (e.g. the optimized images of next/image) to .next/cache, and the
+# error handler appends server errors to logs/error.log, so the "node" user must own both
+# (everything copied above belongs to root)
+RUN mkdir -p .next/cache logs && chown -R node:node .next/cache logs
+
 # Run as the unprivileged "node" user that the official image provides
 USER node
 

@@ -11,6 +11,18 @@ const jsonError = (example: string) => ({
   },
 });
 
+// Every JSON 404 of the API has ONE shape (the NotFound schema): { error: "not found", reason }.
+// The reason says what is missing, e.g. "No user with id 999" (lib/http/notFound.ts).
+const notFoundResponse = (description: string, reason: string) => ({
+  description,
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/NotFound" },
+      example: { error: "not found", reason },
+    },
+  },
+});
+
 const userResponse = (description: string, example: object) => ({
   description,
   content: {
@@ -29,7 +41,7 @@ const idParam = {
   schema: { type: "integer", example: 1 },
 };
 
-const notFound = jsonError('User with id "999" not found');
+const notFound = notFoundResponse("No user has this id", "No user with id 999");
 
 // A 400 that can happen for more than one reason: each reason is shown as a named example
 const badRequest = (examples: Record<string, string>) => ({
@@ -80,14 +92,29 @@ const htmlResponse = (description: string) => ({
   content: { "text/html": { schema: { type: "string" } } },
 });
 
-// 500 for the JSON API: a database problem that wasn't caused by the sent data (e.g. the database is
-// down). The real error is logged on the server; the client only gets this generic message.
+// The 5xx answers of every JSON API route, from the error handler middleware (one ServerError
+// schema). The body never contains the error message, stack trace, SQL or file paths; the full error
+// is logged on the server only.
 const serverError = {
-  description: "Unexpected database error (e.g. the database is unreachable). Details are logged on the server only.",
+  description:
+    "Unexpected error. The full error is logged on the server only; the body never contains it.",
   content: {
     "application/json": {
-      schema: { $ref: "#/components/schemas/Error" },
-      example: { error: "Internal server error" },
+      schema: { $ref: "#/components/schemas/ServerError" },
+      example: { error: "internal error" },
+    },
+  },
+};
+
+const serviceUnavailable = {
+  description: "The database is not reachable (e.g. it is stopped or restarting). Try again later.",
+  content: {
+    "application/json": {
+      schema: { $ref: "#/components/schemas/ServerError" },
+      example: {
+        error: "service unavailable",
+        reason: "The database is not reachable. Try again later.",
+      },
     },
   },
 };
@@ -127,7 +154,7 @@ const exampleAnnouncement = {
   updatedAt: "2026-10-10T09:30:00.000Z",
 };
 
-const announcementNotFound = jsonError('Announcement with id "999" not found');
+const announcementNotFound = notFoundResponse("No announcement has this id", "No announcement with id 999");
 
 const TITLE_REQUIRED = '"title" is required and must be a non-empty string';
 const CONTENT_REQUIRED = '"content" is required and must be a non-empty string';
@@ -171,9 +198,8 @@ const jobPostingBody = (schemaName: string, example: object) => ({
   },
 });
 
-const JOB_POSTING_NOT_FOUND = "Job posting not found";
 const BAD_BODY = "Request body must be JSON (application/json) or form-data";
-const jobPostingNotFound = jsonError(JOB_POSTING_NOT_FOUND);
+const jobPostingNotFound = notFoundResponse("No job posting has this id", "No job posting with id 999");
 
 // ---- Applications ----
 
@@ -242,8 +268,8 @@ const applicationBody = (schemaName: string, example: object) => ({
 });
 
 const BAD_STATUS = '"status" must be one of: pending, accepted, rejected';
-const applicationNotFound = jsonError("Application not found");
-const userNotFoundForApplication = jsonError("User not found");
+const applicationNotFound = notFoundResponse("No application has this id", "No application with id 999");
+const userNotFoundForApplication = notFoundResponse("No user has this id", "No user with id 999");
 const alreadyApplied = {
   ...jsonError("User already applied to this job posting"),
   description:
@@ -268,6 +294,10 @@ export const openApiSpec = {
   },
   tags: [
     { name: "Health", description: "Server status" },
+    {
+      name: "Unknown routes",
+      description: "Every API path no route matches answers the JSON 404 { error, reason }",
+    },
     { name: "API Users", description: "JSON API: create, read, update and delete users" },
     {
       name: "Users (pages)",
@@ -303,6 +333,33 @@ export const openApiSpec = {
     },
   ],
   paths: {
+    "/api/{path}": {
+      parameters: [
+        {
+          name: "path",
+          in: "path",
+          required: true,
+          description:
+            "Any path under /api (one or more segments) that no other route matches, e.g. " +
+            "`doesnotexist` or `x/y/z`",
+          schema: { type: "string", example: "doesnotexist" },
+        },
+      ],
+      get: {
+        tags: ["Unknown routes"],
+        operationId: "unknownApiRoute",
+        summary: "Any unknown API path → JSON 404",
+        description:
+          "A catch-all route (`app/api/[...path]/route.ts`) answers **every method** (GET, POST, PUT, " +
+          "PATCH, DELETE) on an API path that no other route matches with the JSON 404, e.g. " +
+          "`No route matches POST /api/x/y/z` (the query string is left out). Existing routes are " +
+          "never reached by it. A wrong method on an existing path (e.g. `PUT /api/jobs`) is answered " +
+          "by Next.js itself with **405**, no body.",
+        responses: {
+          404: notFoundResponse("No route matches this method and path", "No route matches GET /api/doesnotexist"),
+        },
+      },
+    },
     "/api/health": {
       get: {
         tags: ["Health"],
@@ -345,6 +402,7 @@ export const openApiSpec = {
             },
           },
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       post: {
@@ -379,6 +437,7 @@ export const openApiSpec = {
             "value rejected by the database": DB_REJECTED,
           }),
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -392,6 +451,7 @@ export const openApiSpec = {
           200: userResponse("The user", { id: 1, name: "Ayman", email: "ayman@example.com" }),
           404: notFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       put: {
@@ -420,6 +480,7 @@ export const openApiSpec = {
           }),
           404: notFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       patch: {
@@ -452,6 +513,7 @@ export const openApiSpec = {
           }),
           404: notFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       delete: {
@@ -476,6 +538,7 @@ export const openApiSpec = {
           },
           404: notFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -594,6 +657,7 @@ export const openApiSpec = {
             },
           },
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       post: {
@@ -619,6 +683,7 @@ export const openApiSpec = {
             "content missing or blank": CONTENT_REQUIRED,
           }),
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -633,6 +698,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": INVALID_ANNOUNCEMENT_ID }),
           404: announcementNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       put: {
@@ -667,6 +733,7 @@ export const openApiSpec = {
           }),
           404: announcementNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       patch: {
@@ -698,6 +765,7 @@ export const openApiSpec = {
           }),
           404: announcementNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       delete: {
@@ -723,6 +791,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": INVALID_ANNOUNCEMENT_ID }),
           404: announcementNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -847,6 +916,7 @@ export const openApiSpec = {
             },
           },
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       post: {
@@ -870,6 +940,7 @@ export const openApiSpec = {
             "body is not JSON or form-data": BAD_BODY,
           }),
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -884,6 +955,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": 'Job posting id "abc" is not a valid number' }),
           404: jobPostingNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       patch: {
@@ -909,6 +981,7 @@ export const openApiSpec = {
           }),
           404: jobPostingNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       delete: {
@@ -921,6 +994,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": 'Job posting id "abc" is not a valid number' }),
           404: jobPostingNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -942,6 +1016,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": 'Job posting id "abc" is not a valid number' }),
           404: jobPostingNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       post: {
@@ -964,15 +1039,20 @@ export const openApiSpec = {
             "body is not JSON or form-data": BAD_BODY,
           }),
           404: {
-            description: "The user or the job posting doesn't exist",
+            description:
+              "The job posting in the URL doesn't exist (answered by the 404 guard before the " +
+              "controller runs), or the user in the body doesn't exist",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
+                schema: { $ref: "#/components/schemas/NotFound" },
                 examples: {
-                  user_not_found: { summary: "user not found", value: { error: "User not found" } },
                   job_posting_not_found: {
                     summary: "job posting not found",
-                    value: { error: JOB_POSTING_NOT_FOUND },
+                    value: { error: "not found", reason: "No job posting with id 999" },
+                  },
+                  user_not_found: {
+                    summary: "user in the body not found",
+                    value: { error: "not found", reason: "No user with id 99999" },
                   },
                 },
               },
@@ -980,6 +1060,7 @@ export const openApiSpec = {
           },
           409: alreadyApplied,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -1001,6 +1082,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": 'User id "abc" is not a valid number' }),
           404: userNotFoundForApplication,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -1018,6 +1100,7 @@ export const openApiSpec = {
             exampleApplication,
           ]),
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -1032,6 +1115,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": 'Application id "abc" is not a valid number' }),
           404: applicationNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       patch: {
@@ -1057,6 +1141,7 @@ export const openApiSpec = {
           }),
           404: applicationNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
       delete: {
@@ -1069,6 +1154,7 @@ export const openApiSpec = {
           400: badRequest({ "id is not a whole number": 'Application id "abc" is not a valid number' }),
           404: applicationNotFound,
           500: serverError,
+          503: serviceUnavailable,
         },
       },
     },
@@ -1110,6 +1196,34 @@ export const openApiSpec = {
           department: { type: "string", example: "MIS" },
         },
         additionalProperties: { type: "string" },
+      },
+      ServerError: {
+        type: "object",
+        required: ["error"],
+        description:
+          "The 5xx shape of the JSON API (from the error handler middleware): 500 " +
+          '`{ "error": "internal error" }` for any unexpected error, 503 ' +
+          '`{ "error": "service unavailable", "reason": "…" }` when the database is not reachable. ' +
+          "Never contains the error message, stack trace, SQL or file paths.",
+        properties: {
+          error: { type: "string", enum: ["internal error", "service unavailable"], example: "internal error" },
+          reason: {
+            type: "string",
+            description: "Only on 503",
+            example: "The database is not reachable. Try again later.",
+          },
+        },
+      },
+      NotFound: {
+        type: "object",
+        required: ["error", "reason"],
+        description:
+          "The one 404 shape of the JSON API. `reason` is a clear sentence about what is missing: " +
+          "a resource (`No job posting with id 99999`) or a route (`No route matches GET /api/x`).",
+        properties: {
+          error: { type: "string", enum: ["not found"], example: "not found" },
+          reason: { type: "string", example: "No job posting with id 99999" },
+        },
       },
       Error: {
         type: "object",

@@ -5,20 +5,19 @@
 // and returns a NextResponse.json() with the right status code.
 // It never stores data itself and has no rules of its own: the rules live in the Application Model
 // (validateApplication, validateStatus), and this controller only turns the Model's results into
-// HTTP responses. Database errors are turned into a 400 (bad data) or a generic 500 by withDatabaseErrors.
+// HTTP responses.
+// Unexpected errors (e.g. the database is down) are not caught here: the error handler middleware
+// (lib/middleware/errorHandler.ts) answers them — 400 for data the database rejects, 503 or 500.
 
 import { NextResponse } from "next/server";
+import { notFound } from "@/lib/http/notFound";
 import * as ApplicationModel from "@/lib/models/application";
 import type { ApplicationData, ApplicationError } from "@/lib/models/application";
-import { withDatabaseErrors } from "./databaseErrors";
 
 // The second argument Next.js passes to a route handler under a [id] folder
 type IdParams = { params: Promise<{ id: string }> };
 
 const BAD_BODY = "Request body must be JSON (application/json) or form-data";
-const APPLICATION_NOT_FOUND = "Application not found";
-const USER_NOT_FOUND = "User not found";
-const JOB_POSTING_NOT_FOUND = "Job posting not found";
 const ALREADY_APPLIED = "User already applied to this job posting";
 
 // JSON error response with the given status code
@@ -26,18 +25,22 @@ function jsonError(error: string, status: number) {
   return NextResponse.json({ error }, { status });
 }
 
-// Turns a problem reported by the Model into the matching HTTP response
-function errorResponse(result: ApplicationError) {
+// The ids a request is about (from the URL, or userId from the body), for the 404 reasons
+type Ids = { applicationId?: string; userId?: unknown; jobPostingId?: string };
+
+// Turns a problem reported by the Model into the matching HTTP response. A 404 uses the shared
+// API shape: { error: "not found", reason: "No user with id 99999" }.
+function errorResponse(result: ApplicationError, ids: Ids = {}) {
   switch (result.error) {
     case "validation":
     case "invalid-id":
       return jsonError(result.message, 400);
     case "not-found":
-      return jsonError(APPLICATION_NOT_FOUND, 404);
+      return notFound(`No application with id ${ids.applicationId}`);
     case "user-not-found":
-      return jsonError(USER_NOT_FOUND, 404);
+      return notFound(`No user with id ${String(ids.userId)}`);
     case "job-posting-not-found":
-      return jsonError(JOB_POSTING_NOT_FOUND, 404);
+      return notFound(`No job posting with id ${ids.jobPostingId}`);
     case "already-applied":
       return jsonError(ALREADY_APPLIED, 409);
   }
@@ -71,7 +74,7 @@ async function readBody(request: Request): Promise<ApplicationData | null> {
 // URL: a jobPostingId (or id, createdAt, …) in the body is ignored.
 // 201 with the new application, 400 for invalid data or ids, 404 if the user or the posting
 // doesn't exist, or 409 if this user already applied to this posting.
-export const createForJob = withDatabaseErrors(async (request: Request, { params }: IdParams) => {
+export const createForJob = async (request: Request, { params }: IdParams) => {
   const { id } = await params;
   const body = await readBody(request);
   if (body === null) return jsonError(BAD_BODY, 400);
@@ -81,63 +84,63 @@ export const createForJob = withDatabaseErrors(async (request: Request, { params
     status: body.status,
     jobPostingId: id,
   });
-  if ("error" in result) return errorResponse(result);
+  if ("error" in result) return errorResponse(result, { userId: body.userId, jobPostingId: id });
   return NextResponse.json(result.application, { status: 201 });
-});
+};
 
 // GET /api/jobs/{id}/applications: the applications to job posting {id}, newest first.
 // 200 (an empty array if the posting has none), 400 for an invalid id, or 404 if the posting doesn't exist.
-export const getAllForJob = withDatabaseErrors(async (_request: Request, { params }: IdParams) => {
+export const getAllForJob = async (_request: Request, { params }: IdParams) => {
   const { id } = await params;
   const result = await ApplicationModel.getApplicationsByJobPostingId(id);
-  if ("error" in result) return errorResponse(result);
+  if ("error" in result) return errorResponse(result, { jobPostingId: id });
   return NextResponse.json(result.applications);
-});
+};
 
 // GET /api/users/{id}/applications: user {id}'s applications, newest first.
 // 200 (an empty array if the user has none), 400 for an invalid id, or 404 if the user doesn't exist.
-export const getAllForUser = withDatabaseErrors(async (_request: Request, { params }: IdParams) => {
+export const getAllForUser = async (_request: Request, { params }: IdParams) => {
   const { id } = await params;
   const result = await ApplicationModel.getApplicationsByUserId(id);
-  if ("error" in result) return errorResponse(result);
+  if ("error" in result) return errorResponse(result, { userId: id });
   return NextResponse.json(result.applications);
-});
+};
 
 // GET /api/applications: returns every application, newest first (an empty array if there are none). 200.
-export const getAll = withDatabaseErrors(async () => {
+export const getAll = async () => {
   const { applications } = await ApplicationModel.getAllApplications();
   return NextResponse.json(applications);
-});
+};
 
 // GET /api/applications/{id}: returns the application (200), 400 for an invalid id, or 404.
-export const getById = withDatabaseErrors(async (_request: Request, { params }: IdParams) => {
+export const getById = async (_request: Request, { params }: IdParams) => {
   const { id } = await params;
   const result = await ApplicationModel.getApplicationById(id);
-  if ("error" in result) return errorResponse(result);
+  if ("error" in result) return errorResponse(result, { applicationId: id });
   return NextResponse.json(result.application);
-});
+};
 
 // PATCH /api/applications/{id}: changes ONLY the status (JSON or form-data). Anything else in the
 // body (userId, jobPostingId, id, …) is ignored: an application's user and posting never change.
 // 200 with the updated application, 400 for an invalid id or a missing / invalid status, or 404.
-export const updateStatus = withDatabaseErrors(async (request: Request, { params }: IdParams) => {
+export const updateStatus = async (request: Request, { params }: IdParams) => {
   const { id } = await params;
   const body = await readBody(request);
   if (body === null) return jsonError(BAD_BODY, 400);
 
   const result = await ApplicationModel.updateApplicationStatus(id, body.status);
-  if ("error" in result) return errorResponse(result);
+  if ("error" in result) return errorResponse(result, { applicationId: id });
   return NextResponse.json(result.application);
-});
+};
 
 // DELETE /api/applications/{id}: removes the application. 204 with no body, 400 for an invalid id, or 404.
-const remove = withDatabaseErrors(async (_request: Request, { params }: IdParams) => {
+const remove = async (_request: Request, { params }: IdParams) => {
   const { id } = await params;
   const result = await ApplicationModel.deleteApplication(id);
-  if (typeof result === "object") return errorResponse(result);
-  if (!result) return jsonError(APPLICATION_NOT_FOUND, 404);
+  if (typeof result === "object") return errorResponse(result, { applicationId: id });
+  if (!result) return notFound(`No application with id ${id}`);
   return new NextResponse(null, { status: 204 });
-});
+};
 
 // "delete" is a reserved word, so the function is named remove and exported as delete:
 // callers use ApiApplicationController.delete(request, context).
