@@ -280,10 +280,10 @@ const alreadyApplied = {
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
-    title: "Alumni Tracking System API",
+    title: "IU Alumni API",
     version: "0.1.0",
     description:
-      "API for the Alumni Tracking System (YBSB3001 Web Programming). " +
+      "API for IU Alumni, the alumni platform of Istanbul University (YBSB3001 Web Programming). " +
       "Users and announcements are stored in PostgreSQL (plain SQL, no ORM), so they survive " +
       "restarts; ids and timestamps are assigned by the database. The API and the HTML pages " +
       "share the same data: a user created with " +
@@ -546,31 +546,40 @@ export const openApiSpec = {
       get: {
         tags: ["Users (pages)"],
         operationId: "usersPage",
-        summary: "Users list page (HTML)",
+        summary: "Graduates and students list page (HTML)",
         description:
-          "Renders an HTML page with an \"Add a user\" form (name required, email, age) and a " +
-          "table of all users (id, name, email, department, age), each with **View**, **Edit** and " +
-          "**Delete** actions. Shows a short message when there are no users yet.",
+          "Renders an HTML page with a grid of person cards (initials, name, department, city); " +
+          "each card links to the person's page, where **Edit** and **Delete** are. The band's " +
+          "**Add a graduate** button goes to `/users/new`. When there are no users yet, the page " +
+          "shows \"No graduates yet.\" with one **Add a graduate** button instead.",
         responses: {
-          200: htmlResponse("HTML page with the form and the list of users"),
+          200: htmlResponse("HTML page with the list of users"),
+        },
+      },
+    },
+    "/users/new": {
+      get: {
+        tags: ["Users (pages)"],
+        operationId: "newUserPage",
+        summary: "Add a graduate page (HTML)",
+        description:
+          "Renders an HTML form to add a user: name (required), email and age (optional).",
+        responses: {
+          200: htmlResponse("HTML page with the \"Add a graduate\" form"),
         },
       },
       post: {
         tags: ["Users (pages)"],
-        operationId: "usersPageFormActions",
-        summary: "Create or delete a user from the /users page (Server Actions, browser only)",
+        operationId: "newUserFormAction",
+        summary: "Add a user from the /users/new form (Server Action, browser only)",
         description:
-          "Two forms on `/users` submit to this URL, and Next.js runs the matching **Server Action** " +
-          "from `app/users/actions.ts`:\n\n" +
-          "- the **\"Add a user\"** form → `createUserAction` → `UserController.create`. On success " +
-          "the form shows \"User … created with id …\" and the list refreshes; a missing name is " +
-          "shown as an error in the form.\n" +
-          "- a row's **Delete** button (after a browser confirmation) → `deleteUserAction` → " +
-          "`UserController.delete`. On success the list refreshes; if the user no longer exists, " +
-          "\"User with id … not found\" is shown next to the button.\n\n" +
+          "Submitting the **Add a graduate** form sends the request to this URL. Next.js runs " +
+          "`createUserAction` (`app/users/actions.ts`) → `UserController.create` with `name`, " +
+          "`email` and `age`. On success the browser is redirected to the new user's page " +
+          "`/users/{id}`; a missing name or an age that isn't a whole number is shown as an error " +
+          "in the form, which keeps what was typed.\n\n" +
           SERVER_ACTION_NOTE +
-          "**To create or delete users from Postman or scripts, use `POST /api/users` and " +
-          "`DELETE /api/users/{id}`.**",
+          "**To create users from Postman or scripts, use `POST /api/users`.**",
         responses: serverActionResponses,
       },
     },
@@ -585,7 +594,7 @@ export const openApiSpec = {
           "**Delete** button and a link back to the list.",
         responses: {
           200: htmlResponse("HTML page with the user's fields"),
-          404: htmlResponse('HTML "User not found" page, when no user has this id'),
+          404: htmlResponse('HTML "We couldn\'t find that graduate or student." page, when no user has this id'),
         },
       },
       post: {
@@ -613,7 +622,7 @@ export const openApiSpec = {
           "(department, …) are kept as they are when the form is saved.",
         responses: {
           200: htmlResponse("HTML page with the pre-filled edit form"),
-          404: htmlResponse('HTML "User not found" page, when no user has this id'),
+          404: htmlResponse('HTML "We couldn\'t find that graduate or student." page, when no user has this id'),
         },
       },
       post: {
@@ -801,32 +810,40 @@ export const openApiSpec = {
         operationId: "announcementsPage",
         summary: "Announcements list page (HTML)",
         description:
-          "Renders an HTML page with an \"Add an announcement\" form (title and content required, " +
-          "author optional) and a table of every announcement, newest first, with its title, " +
-          "author and date and **View**, **Edit** and **Delete** actions. Shows a short message " +
-          "when there are no announcements yet.",
+          "Renders an HTML page with announcement cards, newest first (date, title, preview, " +
+          "author); each card links to the announcement's page, where **Edit** and **Delete** are. " +
+          "The band's **Post an announcement** button goes to `/announcements/new`. When there " +
+          "are none yet, the page shows \"No announcements yet.\" with one **Post an " +
+          "announcement** button instead.",
         responses: {
-          200: htmlResponse("HTML page with the form and the list of announcements"),
+          200: htmlResponse("HTML page with the list of announcements"),
+        },
+      },
+    },
+    "/announcements/new": {
+      get: {
+        tags: ["Announcements (pages)"],
+        operationId: "newAnnouncementPage",
+        summary: "Post an announcement page (HTML)",
+        description:
+          "Renders an HTML form to post an announcement: title and content (required) and author " +
+          "(optional).",
+        responses: {
+          200: htmlResponse("HTML page with the \"Post an announcement\" form"),
         },
       },
       post: {
         tags: ["Announcements (pages)"],
-        operationId: "announcementsPageFormActions",
-        summary:
-          "Create or delete an announcement from the /announcements page (Server Actions, browser only)",
+        operationId: "newAnnouncementFormAction",
+        summary: "Post an announcement from the /announcements/new form (Server Action, browser only)",
         description:
-          "Two forms on `/announcements` submit to this URL, and Next.js runs the matching " +
-          "**Server Action** from `app/announcements/actions.ts`:\n\n" +
-          "- the **\"Add an announcement\"** form → `createAnnouncementAction` → " +
-          "`AnnouncementController.create`. On success the form shows \"Announcement … created " +
-          "with id …\" and the list refreshes; a missing title or content is shown as an error " +
-          "in the form.\n" +
-          "- a row's **Delete** button (after a browser confirmation) → `deleteAnnouncementAction` " +
-          "→ `AnnouncementController.delete`. On success the list refreshes; if the announcement " +
-          "no longer exists, \"Announcement with id … not found\" is shown next to the button.\n\n" +
+          "Submitting the **Post an announcement** form sends the request to this URL. Next.js runs " +
+          "`createAnnouncementAction` (`app/announcements/actions.ts`) → " +
+          "`AnnouncementController.create` with `title`, `content` and `author`. On success the " +
+          "browser is redirected to the new announcement's page `/announcements/{id}`; a missing " +
+          "title or content is shown as an error in the form, which keeps what was typed.\n\n" +
           SERVER_ACTION_NOTE +
-          "**To create or delete announcements from Postman or scripts, use " +
-          "`POST /api/announcements` and `DELETE /api/announcements/{id}`.**",
+          "**To create announcements from Postman or scripts, use `POST /api/announcements`.**",
         responses: serverActionResponses,
       },
     },
@@ -842,7 +859,7 @@ export const openApiSpec = {
         responses: {
           200: htmlResponse("HTML page with the announcement"),
           404: htmlResponse(
-            'HTML "Announcement not found" page, when no announcement has this id or the id ' +
+            'HTML "We couldn\'t find that announcement." page, when no announcement has this id or the id ' +
               "isn't a whole number",
           ),
         },
@@ -873,7 +890,7 @@ export const openApiSpec = {
         responses: {
           200: htmlResponse("HTML page with the pre-filled edit form"),
           404: htmlResponse(
-            'HTML "Announcement not found" page, when no announcement has this id or the id ' +
+            'HTML "We couldn\'t find that announcement." page, when no announcement has this id or the id ' +
               "isn't a whole number",
           ),
         },

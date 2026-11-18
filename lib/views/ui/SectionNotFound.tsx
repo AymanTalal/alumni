@@ -6,14 +6,15 @@ import NotFoundView from "./NotFoundView";
 // Shared UI: the not-found page of a section's [id] pages (/jobs/{id}, /jobs/{id}/edit, …), in the
 // one shared look (NotFoundView). The page calls notFound() (HTTP 404) both when the id is not a
 // valid id ("abc", "0", "1.5") and when no row has it; this view tells the two apart from the URL:
-//   /jobs/abc    → "Page not found" — Invalid id: "abc" is not a valid job posting id.
-//   /jobs/99999  → the section's own title and text, e.g. "Job posting not found"
+//   /jobs/abc    → "We couldn't find that page." — "abc" isn't a job posting number, so this link
+//                  can't be right.
+//   /jobs/99999  → the section's own title and text, e.g. "We couldn't find that job posting."
 // A Client Component only because a not-found page gets no props and reads the path with
-// usePathname. Markup and wording only: the rules for ids stay in the models.
+// usePathname. Markup and wording only (BRAND.md voice): the rules for ids stay in the models.
 
 type Props = {
-  title: string; // e.g. "Job posting not found"
-  reason: string; // e.g. "There is no job posting with this id."
+  title: string; // e.g. "We couldn't find that job posting."
+  reason: string; // e.g. "It may have been deleted, or the link may be wrong."
   resource: string; // e.g. "job posting", for the invalid-id reason
   back: { href: string; label: string };
 };
@@ -26,8 +27,8 @@ export default function SectionNotFound({ title, reason, resource, back }: Props
   if (!isValidId(id)) {
     return (
       <NotFoundView
-        title="Page not found"
-        reason={`Invalid id: “${id}” is not a valid ${resource} id.`}
+        title="We couldn't find that page."
+        reason={`“${id}” isn't a ${resource} number, so this link can't be right.`}
         back={back}
       />
     );

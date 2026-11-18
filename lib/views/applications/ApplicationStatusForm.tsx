@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import type { ApplicationStatus } from "@/lib/models/application";
+import { STATUS_LABELS } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Field";
 import type { ApplicationFormState } from "./ApplicationCreateForm";
@@ -32,7 +33,7 @@ export default function ApplicationStatusForm({ applicationId, status, statuses,
         <Select name="status" defaultValue={status} aria-label="Status" className="w-auto py-1 text-sm">
           {statuses.map((value) => (
             <option key={value} value={value}>
-              {value}
+              {STATUS_LABELS[value]}
             </option>
           ))}
         </Select>

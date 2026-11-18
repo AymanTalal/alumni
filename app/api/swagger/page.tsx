@@ -6,13 +6,14 @@ import SwaggerView from "./SwaggerView";
 // Interactive API docs. The spec itself lives in lib/openapi.ts.
 
 export const metadata: Metadata = {
-  title: "API Docs | Alumni Tracking System",
+  title: "API Docs", // shown as "API Docs · IU Alumni" (the title template in app/layout.tsx)
 };
 
 export default function SwaggerPage() {
-  // Swagger UI is designed for a light background, so keep it light even in dark mode
+  // Swagger UI is designed for a light background: the white surface and the main text color
+  // come from the design tokens (BRAND.md), never a hex or a palette color
   return (
-    <div className="flex-1 bg-white text-black">
+    <div className="flex-1 bg-surface text-ink">
       <SwaggerView spec={openApiSpec} />
     </div>
   );

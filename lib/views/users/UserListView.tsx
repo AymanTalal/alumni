@@ -1,67 +1,28 @@
 import type { User } from "@/lib/models/user";
-import { ButtonLink } from "../ui/Button";
 import EmptyState from "../ui/EmptyState";
-import { Table, TableBody, TableHead, Td, Th, Tr } from "../ui/Table";
-import TextLink from "../ui/TextLink";
-import DeleteUserButton, { type DeleteUserState } from "./DeleteUserButton";
+import PersonCard from "./PersonCard";
 
-// View: renders a list of users as a table, with View / Edit / Delete for each row.
-// Markup and styling only, no data logic: the page gets the users from UserController
-// and passes them in, together with the delete Server Action.
+// View: the people on /users as a grid of person cards (DESIGN.md §9, browsing pages): avatar,
+// name, department chip, city — each card links to the person's page, where Edit and Delete are.
+// Markup only: the page gets the users from UserController and passes them in.
+// An empty list shows the empty state (illustration) with its ONE button, "Add a graduate".
 
-// Fields shown in the table; any other fields are visible on the user's own page
-const COLUMNS = ["email", "department", "age"] as const;
-
-type Props = {
-  users: User[];
-  deleteAction: (userId: number, state: DeleteUserState, formData: FormData) => Promise<DeleteUserState>;
-};
-
-export default function UserListView({ users, deleteAction }: Props) {
+export default function UserListView({ users }: { users: User[] }) {
   if (users.length === 0) {
     return (
-      <EmptyState title="No users yet.">
-        Add one with the form above, or with <code>POST /api/users</code>.
+      <EmptyState title="No graduates yet." action={{ href: "/users/new", label: "Add a graduate" }}>
+        Add the first one to start the directory.
       </EmptyState>
     );
   }
 
   return (
-    <Table>
-      <TableHead>
-        <Th>ID</Th>
-        <Th>Name</Th>
-        {COLUMNS.map((column) => (
-          <Th key={column}>{column}</Th>
-        ))}
-        <Th>Actions</Th>
-      </TableHead>
-      <TableBody>
-        {users.map((user) => (
-          <Tr key={user.id}>
-            <Td className="text-muted">{user.id}</Td>
-            <Td>
-              <TextLink href={`/users/${user.id}`}>{user.name}</TextLink>
-            </Td>
-            {COLUMNS.map((column) => (
-              <Td key={column}>
-                {user[column] === undefined || user[column] === "" ? "—" : user[column]}
-              </Td>
-            ))}
-            <Td>
-              <div className="flex flex-wrap items-start gap-2">
-                <ButtonLink href={`/users/${user.id}`} variant="secondary" size="sm">
-                  View
-                </ButtonLink>
-                <ButtonLink href={`/users/${user.id}/edit`} variant="secondary" size="sm">
-                  Edit
-                </ButtonLink>
-                <DeleteUserButton userId={user.id} userName={user.name} action={deleteAction} />
-              </div>
-            </Td>
-          </Tr>
-        ))}
-      </TableBody>
-    </Table>
+    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {users.map((user) => (
+        <li key={user.id} className="min-w-0">
+          <PersonCard user={user} />
+        </li>
+      ))}
+    </ul>
   );
 }

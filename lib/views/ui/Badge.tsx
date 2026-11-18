@@ -24,6 +24,13 @@ export function Badge({ tone = "neutral", children }: BadgeProps) {
   );
 }
 
+// How each status is shown on the pages (the stored value and the API stay lowercase)
+export const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  pending: "Pending",
+  accepted: "Accepted",
+  rejected: "Rejected",
+};
+
 // Which badge tone each application status gets
 const STATUS_TONES: Record<ApplicationStatus, BadgeTone> = {
   pending: "accent",
@@ -32,5 +39,5 @@ const STATUS_TONES: Record<ApplicationStatus, BadgeTone> = {
 };
 
 export function StatusBadge({ status }: { status: ApplicationStatus }) {
-  return <Badge tone={STATUS_TONES[status]}>{status}</Badge>;
+  return <Badge tone={STATUS_TONES[status]}>{STATUS_LABELS[status]}</Badge>;
 }

@@ -1,40 +1,20 @@
-import Card from "@/lib/views/ui/Card";
-import PageContainer from "@/lib/views/ui/PageContainer";
-import TextLink from "@/lib/views/ui/TextLink";
+import { connection } from "next/server";
+import * as HomeController from "@/lib/controllers/HomeController";
+import HomeView from "@/lib/views/home/HomeView";
 
 // Route: "/"  (file: app/page.tsx)
-// Temporary homepage — will be replaced later in the course. The main navigation is in the
-// site header (lib/views/ui/SiteHeader.tsx); these cards link to the same sections.
+// GET / → Page → HomeController.getOverview (read-only: counts and the newest records from the
+// Models) → rendered by HomeView: the name "IU Alumni" and its promise, one primary button
+// ("Find a graduate"), a secondary way to the job postings, the numbers, the newest job postings
+// and announcements, and the four sections. The browser tab shows "IU Alumni" (app/layout.tsx).
 
-const SECTIONS = [
-  { href: "/users", label: "Users", text: "Alumni and students in the system." },
-  { href: "/announcements", label: "Announcements", text: "News and events for graduates." },
-  { href: "/jobs", label: "Jobs", text: "Job postings from partner companies." },
-  { href: "/applications", label: "Applications", text: "Who applied to which job posting." },
-];
+export default async function HomePage() {
+  // Render on every request, so the numbers and lists are always current
+  // (otherwise Next.js could render this page once at build time)
+  await connection();
 
-export default function HomePage() {
-  return (
-    <PageContainer>
-      <section className="py-6 text-center sm:py-12">
-        <h1 className="text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
-          Alumni Tracking System
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-muted">
-          Keeping Istanbul University connected with its graduates.
-        </p>
-      </section>
+  const overview = await HomeController.getOverview();
 
-      <nav aria-label="Sections" className="grid gap-4 sm:grid-cols-2">
-        {SECTIONS.map(({ href, label, text }) => (
-          <Card key={href}>
-            <h2 className="text-lg font-semibold">
-              <TextLink href={href}>{label}</TextLink>
-            </h2>
-            <p className="mt-1 text-sm text-muted">{text}</p>
-          </Card>
-        ))}
-      </nav>
-    </PageContainer>
-  );
+  // HomeView renders the page's <main> itself: the full-width green hero band, then the content
+  return <HomeView {...overview} />;
 }

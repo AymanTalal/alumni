@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 // tells which page is open, runs in the browser. Markup and styling only.
 
 const LINKS = [
-  { href: "/users", label: "Users" },
+  { href: "/users", label: "Graduates & students" },
   { href: "/announcements", label: "Announcements" },
   { href: "/jobs", label: "Jobs" },
   { href: "/applications", label: "Applications" },

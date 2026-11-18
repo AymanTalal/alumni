@@ -1,4 +1,4 @@
-# 🎓 Alumni Tracking System
+# 🎓 IU Alumni
 
 > A modern web platform to connect universities with their graduates — built as a semester-long project for the Web Programming course, with the goal of being adopted as the university's official alumni tracking system.
 
@@ -8,7 +8,7 @@
 
 Most universities lose touch with their graduates shortly after they leave campus. There is no easy way for the school to know where alumni ended up working, invite them back for events, or let current students network with people who walked the same halls.
 
-This project is a full-stack **Alumni Tracking System** built from scratch as part of a university Web Programming course. Every student in the course builds their own version of this system as a semester-long assignment, delivered incrementally, week by week. The strongest implementation will be considered for real deployment as the university's official alumni platform.
+This project, **IU Alumni** ("Every IU graduate, one step away."), is a full-stack alumni platform built from scratch as part of a university Web Programming course. Every student in the course builds their own version of this system as a semester-long assignment, delivered incrementally, week by week. The strongest implementation will be considered for real deployment as the university's official alumni platform.
 
 This repository documents that build from day one — architecture decisions, weekly progress, and the reasoning behind them — both for course evaluation and as a portfolio piece.
 
@@ -63,7 +63,7 @@ This project is being built incrementally over the semester. Status is updated w
   - [x] **404 guard middleware (task 4)** — on every API route with an `[id]`, a middleware asks the Model whether the row exists and, if not, answers **404** `{ "error": "not found", "reason": "No job posting with id 99999" }` without reaching the controller; every API 404 (also the controllers' own and unknown API paths, through a catch-all route) uses that one shape ([🧩 Middleware](#-middleware))
   - [x] **Error handler middleware, 5xx guarding (task 5)** — one middleware catches every unexpected error of the JSON API and answers a safe shape: **503** `{ "error": "service unavailable", "reason": "The database is not reachable. Try again later." }` when the database can't be reached, **500** `{ "error": "internal error" }` otherwise; the stack trace is logged once, never sent. The controllers lost their own try/catch ([🧩 Middleware](#-middleware))
   - [x] **Error log file (task 6)** — every 500 / 503 caught by the error handler is also appended to `logs/error.log` (Istanbul date and time, method, path, status, error and stack), which Docker mounts into the project folder and git ignores ([🧩 Middleware](#-middleware))
-  - [x] **404 page and redirects (task 7)** — one shared "not found" look for every page 404 (a generic `app/not-found.tsx` with the asked-for path and links to the main pages; the section pages keep their own text, and an invalid id like `/jobs/abc` says "Invalid id"), and **308** redirects to the canonical page URL (`/job/3` → `/jobs/3`, `/Jobs` → `/jobs`, `/jobs/` → `/jobs`) ([🔀 The 404 page and redirects](#-the-404-page-and-redirects))
+  - [x] **404 page and redirects (task 7)** — one shared "not found" look for every page 404 (a generic `app/not-found.tsx` with the asked-for path and links to the main pages; the section pages have their own text, and an invalid id like `/jobs/abc` says so), and **308** redirects to the canonical page URL (`/job/3` → `/jobs/3`, `/Jobs` → `/jobs`, `/jobs/` → `/jobs`) ([🔀 The 404 page and redirects](#-the-404-page-and-redirects))
   - [x] **Dockerfile fix** — the image runs as the `node` user, so it now creates `.next/cache` and `logs/` and gives them to `node`: `next/image` can cache the logo (no more `EACCES` on `.next/cache`) and the error handler can write `logs/error.log`. `public/` is copied into the image, so `/logo.png` works in Docker
 
 **Open items** (planned, not implemented yet):
@@ -80,38 +80,44 @@ This project is being built incrementally over the semester. Status is updated w
 ```
 alumni/
 ├── app/                              # Next.js App Router — every folder is a URL segment
-│   ├── layout.tsx                    # Root layout shared by all pages: the site header (logo + navigation) above every page
+│   ├── layout.tsx                    # Root layout shared by all pages: the site header (logo + navigation) above every page and the site footer below it
 │   ├── not-found.tsx                 # The generic 404 page: any URL no page matches (status 404)
+│   ├── error.tsx                     # The designed 500 page for browsers (a page failed on the server)
+│   ├── global-error.tsx              # The same 500 page when even the root layout fails (own <html>)
 │   ├── globals.css                   # Tailwind CSS + the DESIGN TOKENS (colors, fonts, radius, shadows) — change the theme here
 │   ├── favicon.ico                   # Browser tab icon
-│   ├── page.tsx                      # /                   temporary homepage with cards linking to the four sections
-│   ├── about/page.tsx                # /about              temporary about page
+│   ├── page.tsx                      # GET /               homepage: "IU Alumni", the promise, the numbers, the newest postings and announcements → HomeController
+│   ├── about/page.tsx                # /about              what IU Alumni is, who it is for, what you can do
 │   ├── users/
-│   │   ├── page.tsx                  # GET /users          user list + "Add a user" form  → UserController
+│   │   ├── page.tsx                  # GET /users          the table of users, "Add a graduate" → UserController
+│   │   ├── new/
+│   │   │   └── page.tsx              # GET /users/new      "Add a graduate" form (HTML)  → UserController (on submit)
 │   │   ├── actions.ts                # Server Actions      create, update, delete         → UserController
 │   │   └── [id]/
 │   │       ├── page.tsx              # GET /users/{id}     one user's profile (HTML)      → UserController
-│   │       ├── not-found.tsx         #                     "User not found" page (404, shared look; "Invalid id" for e.g. abc)
+│   │       ├── not-found.tsx         #                     "We couldn't find that graduate or student." page (404, shared look; its own text for an id like abc)
 │   │       └── edit/
 │   │           └── page.tsx          # GET /users/{id}/edit  edit form (HTML)             → UserController
 │   ├── announcements/
-│   │   ├── page.tsx                  # GET /announcements  list + "Add an announcement" form → AnnouncementController
+│   │   ├── page.tsx                  # GET /announcements  the table of announcements, "Post an announcement" → AnnouncementController
+│   │   ├── new/
+│   │   │   └── page.tsx              # GET /announcements/new  "Post an announcement" form (HTML) → AnnouncementController (on submit)
 │   │   ├── actions.ts                # Server Actions      create, update, delete         → AnnouncementController
 │   │   └── [id]/
 │   │       ├── page.tsx              # GET /announcements/{id}  one announcement (HTML)   → AnnouncementController
-│   │       ├── not-found.tsx         #                     "Announcement not found" page (404, shared look; "Invalid id" for e.g. abc)
+│   │       ├── not-found.tsx         #                     "We couldn't find that announcement." page (404, shared look; its own text for an id like abc)
 │   │       └── edit/
 │   │           └── page.tsx          # GET /announcements/{id}/edit  edit form (HTML)     → AnnouncementController
 │   ├── applications/
 │   │   └── page.tsx                  # GET /applications   every application (applicant, job posting, status) → ApplicationController
 │   ├── jobs/
-│   │   ├── page.tsx                  # GET /jobs           job posting list + "New job posting" → JobPostingController
+│   │   ├── page.tsx                  # GET /jobs           the table of job postings, "Post a job" → JobPostingController, ApplicationController
 │   │   ├── actions.ts                # Server Actions      job postings: create, update, delete; applications: add, status, remove
 │   │   ├── new/
-│   │   │   └── page.tsx              # GET /jobs/new       "New job posting" form (HTML)  → JobPostingController (on submit)
+│   │   │   └── page.tsx              # GET /jobs/new       "Post a job" form (HTML)  → JobPostingController (on submit)
 │   │   └── [id]/
 │   │       ├── page.tsx              # GET /jobs/{id}      one posting + its Applications → JobPostingController, ApplicationController
-│   │       ├── not-found.tsx         #                     "Job posting not found" page (404, shared look; "Invalid id" for e.g. abc)
+│   │       ├── not-found.tsx         #                     "We couldn't find that job posting." page (404, shared look; its own text for an id like abc)
 │   │       └── edit/
 │   │           └── page.tsx          # GET /jobs/{id}/edit  edit form + Delete (HTML)     → JobPostingController
 │   ├── hello/
@@ -152,6 +158,7 @@ alumni/
 │   │   └── serverError.ts            # internalError() → 500, serviceUnavailable() → 503: the 5xx shapes
 │   ├── controllers/
 │   │   ├── databaseErrors.ts         # Turns database errors caused by the sent data into clear 400 messages
+│   │   ├── pageMessages.ts           # The page wording (BRAND.md voice) for the messages people see; the API keeps its own
 │   │   ├── ApiUserController.ts      # User CRUD for the JSON API: Request in, NextResponse.json out
 │   │   ├── UserController.ts         # User CRUD for pages: plain arguments in, { user } / { error } out
 │   │   ├── ApiAnnouncementController.ts  # Announcement CRUD for the JSON API: Request in, NextResponse.json out
@@ -159,51 +166,70 @@ alumni/
 │   │   ├── ApiJobPostingController.ts  # Job posting API: Request in, NextResponse.json out (status codes only, no rules)
 │   │   ├── ApiApplicationController.ts # Application API: Request in, NextResponse.json out (status codes only, no rules)
 │   │   ├── JobPostingController.ts   # Job posting CRUD for pages: plain arguments in, { jobPosting } / { error } out
-│   │   └── ApplicationController.ts  # Applications for pages: plain arguments in, { application(s) } / { error } out
+│   │   ├── ApplicationController.ts  # Applications for pages: plain arguments in, { application(s) } / { error } out
+│   │   └── HomeController.ts         # The homepage: read-only counts and the newest records from the Models
 │   ├── models/
 │   │   ├── user.ts                   # User Model: CRUD functions in plain SQL on the users table
 │   │   ├── announcement.ts           # Announcement Model: CRUD functions in plain SQL on the announcements table
 │   │   ├── jobPosting.ts             # JobPosting Model: rules + CRUD in plain SQL on job_postings
 │   │   └── application.ts            # Application Model: rules + CRUD in plain SQL on applications
 │   ├── views/
+│   │   ├── home/
+│   │   │   └── HomeView.tsx          # The homepage: two-column hero (Recently joined), stats strip, people, job cards, department bars, announcements (markup only)
 │   │   ├── ui/                       # Shared UI pieces, built once and used by every view and page (markup only)
 │   │   │   ├── Button.tsx            # Button / ButtonLink: primary (green), secondary, danger; buttonClasses()
 │   │   │   ├── Card.tsx              # White rounded card with a light shadow
 │   │   │   ├── Badge.tsx             # Badge + StatusBadge (pending = yellow, accepted = green, rejected = red)
-│   │   │   ├── PageHeader.tsx        # "← back" link, page title, description, action buttons
 │   │   │   ├── PageContainer.tsx     # The centered <main> wrapper of every page
-│   │   │   ├── Section.tsx           # A titled block inside a page (e.g. "Applications")
 │   │   │   ├── Table.tsx             # Compact dashboard table in a card (scrolls inside the card on a phone)
 │   │   │   ├── Field.tsx             # Field (label + control + hint / error), Input, Textarea, Select, FormMessage
 │   │   │   ├── EmptyState.tsx        # What an empty list shows
 │   │   │   ├── NotFoundView.tsx      # The ONE look of every 404 page: title, reason, asked-for path, links
-│   │   │   ├── SectionNotFound.tsx   # A section's 404 page: its own text, or "Invalid id" (Client Component)
+│   │   │   ├── SectionNotFound.tsx   # A section's 404 page: its own text, or the invalid-id text (Client Component)
+│   │   │   ├── ServerErrorView.tsx   # The 500 page's look: what happened, "Try again", a link home
 │   │   │   ├── RequestedPath.tsx     # Shows the asked-for path with usePathname (Client Component)
 │   │   │   ├── TextLink.tsx          # Green inline link
+│   │   │   ├── Hero.tsx              # Richer layer: the full-width green band (title, promise, actions, stats)
+│   │   │   ├── LinkCard.tsx          # Richer layer: a card that is one link, with the hover lift
+│   │   │   ├── Avatar.tsx            # Richer layer: initials avatar, tint picked from the brand tints by the name
+│   │   │   ├── IconCircle.tsx        # Richer layer: an icon in a soft tinted circle
+│   │   │   ├── Chip.tsx              # Richer layer: a small metadata chip (department, city, date, count)
+│   │   │   ├── icons.tsx             # Richer layer: the inline SVG icon set + the empty-state illustration
+│   │   │   ├── Panel.tsx             # Richer layer: a section as a white panel with a header row (icon, title, count, See all)
+│   │   │   ├── SiteFooter.tsx        # The green footer on every page: yellow top line, logo, name, main links, the promise
+│   │   │   ├── StatsStrip.tsx        # Richer layer: one white card of counts over the hero band's bottom edge
+│   │   │   ├── PageBand.tsx          # Richer layer: the compact green header band of every page except the homepage
+│   │   │   ├── Inset.tsx             # Richer layer: a light box inside a Panel (e.g. the "Add application" form)
+│   │   │   ├── DetailHeader.tsx      # Richer layer: the header card of a detail page (media, title, chips, actions)
+│   │   │   ├── DateBlock.tsx         # Richer layer: a date as day + short month
+│   │   │   ├── BarList.tsx           # Richer layer: a horizontal bar chart in plain HTML/CSS
 │   │   │   ├── SiteHeader.tsx        # Header: logo (next/image), project name, navigation
 │   │   │   └── NavLinks.tsx          # Main navigation, highlights the current page (Client Component)
 │   │   ├── users/
-│   │   │   ├── UserListView.tsx      # Table of users with View / Edit / Delete (markup only)
+│   │   │   ├── UserListView.tsx      # A grid of person cards (markup only)
+│   │   │   ├── PersonCard.tsx        # A person as a link card: avatar, name, department, city (homepage, /users)
 │   │   │   ├── UserDetailView.tsx    # One user's fields + Edit / Delete (markup only)
-│   │   │   ├── UserCreateForm.tsx    # "Add a user" form: name*, email, age (markup only)
+│   │   │   ├── UserCreateForm.tsx    # "Add a graduate" form on /users/new: name*, email, age (markup only)
 │   │   │   ├── UserEditForm.tsx      # "Edit user" form, pre-filled (markup only)
 │   │   │   └── DeleteUserButton.tsx  # Delete button that asks for confirmation (markup only)
 │   │   ├── announcements/
-│   │   │   ├── AnnouncementListView.tsx      # Table: title, author, date + View / Edit / Delete (markup only)
+│   │   │   ├── AnnouncementListView.tsx      # A grid of announcement cards (markup only)
+│   │   │   ├── AnnouncementCard.tsx          # An announcement as a link card (homepage, /announcements)
 │   │   │   ├── AnnouncementDetailView.tsx    # Full announcement + Edit / Delete (markup only)
-│   │   │   ├── AnnouncementCreateForm.tsx    # "Add an announcement" form: title*, content*, author (markup only)
+│   │   │   ├── AnnouncementCreateForm.tsx    # "Post an announcement" form on /announcements/new: title*, content*, author (markup only)
 │   │   │   ├── AnnouncementEditForm.tsx      # "Edit announcement" form, pre-filled (markup only)
 │   │   │   ├── DeleteAnnouncementButton.tsx  # Delete button that asks for confirmation (markup only)
-│   │   │   └── formatDate.ts                 # Formats the ISO dates for display (also used by jobs/ and applications/)
+│   │   │   └── formatDate.ts                 # formatShortDate: dates like "21 Oct 2026" (used by every view that shows a date)
 │   │   ├── jobs/
-│   │   │   ├── JobPostingListView.tsx        # Table: title, company, date + View / Edit / Delete (markup only)
-│   │   │   ├── JobPostingDetailView.tsx      # One job posting + Edit / Delete (markup only)
-│   │   │   ├── JobPostingCreateForm.tsx      # "New job posting" form: title*, company (markup only)
-│   │   │   ├── JobPostingEditForm.tsx        # "Edit job posting" form, pre-filled (markup only)
+│   │   │   ├── JobPostingListView.tsx        # A grid of job cards (markup only)
+│   │   │   ├── JobCard.tsx                   # A job posting as a link card (homepage, /jobs)
+│   │   │   ├── JobPostingDetailView.tsx      # One job posting: title, company, dates + Edit (secondary) / Delete (markup only)
+│   │   │   ├── JobPostingCreateForm.tsx      # "Post a job" form: title*, company (markup only)
+│   │   │   ├── JobPostingEditForm.tsx        # "Edit job posting" form, pre-filled, same look as "Post a job" (markup only)
 │   │   │   └── DeleteJobPostingButton.tsx    # Delete button that asks for confirmation (markup only)
 │   │   └── applications/
-│   │       ├── JobApplicationsView.tsx       # A posting's Applications: applicant, status, date + status form / Remove (markup only)
-│   │       ├── ApplicationCreateForm.tsx     # "Add application" form: choose a user (markup only)
+│   │       ├── JobApplicationsView.tsx       # A posting's Applications: table (applicant, status badge, actions) + the "Add application" form, or the empty state (markup only)
+│   │       ├── ApplicationCreateForm.tsx     # "Add application" form: choose a graduate or student — the page's one primary button (markup only)
 │   │       ├── ApplicationListView.tsx       # Table on /applications: applicant, job posting, status, date + status form / Remove (markup only)
 │   │       ├── ApplicationStatusForm.tsx     # Status dropdown + Update for one application (markup only)
 │   │       ├── DeleteApplicationButton.tsx   # Remove button that asks for confirmation (markup only)
@@ -234,6 +260,14 @@ alumni/
 │   └── lib/
 │       └── database.mjs              # Shared by the scripts: reads DATABASE_URL, connects, clear errors
 ├── ddd.md                            # Data Design Documentation: the data, its rules and the PostgreSQL tables
+├── BRAND.md                          # Brand kit: name and promise, colours, type, shape, voice and the logo (source of truth for the design)
+├── DESIGN.md                         # How pages are built: layout, the table, the empty state, forms, components (parts taken from 3 references)
+├── docs/
+│   └── references/                   # The 3 design references (downloaded, kept unchanged) + README.md index
+│       ├── README.md                 # Index: each file, its site, source link, role (ref-1/2/3) and the part we take
+│       ├── shadcn.md                 # ref-1: shadcn/ui (layout, spacing rhythm, components)
+│       ├── stripe.md                 # ref-2: Stripe (the table)
+│       └── linear.md                 # ref-3: Linear (the empty state)
 ├── AGENTS.md                         # Instructions for AI coding assistants
 ├── CLAUDE.md                         # Points Claude Code at AGENTS.md
 ├── package.json                      # Dependencies & npm scripts (dev, build, start, lint, migrate, migrate:down, seed, seed:fresh)
@@ -280,8 +314,9 @@ Route / Page / Server Action  →  Controller  →  Model  →  lib/db.ts  →  
 |---|---|---|---|
 | `GET` / `POST` `/api/users` | `app/api/users/route.ts` | `ApiUserController.getAll` / `create` | `lib/models/user.ts` |
 | `GET` / `PUT` / `PATCH` / `DELETE` `/api/users/{id}` | `app/api/users/[id]/route.ts` | `ApiUserController.getById` / `replace` / `update` / `delete` | `lib/models/user.ts` |
-| `GET /users` | `app/users/page.tsx` → renders `UserListView` + `UserCreateForm` | `UserController.getAll` | `lib/models/user.ts` |
-| `POST /users` (the form) | Server Action `createUserAction` in `app/users/actions.ts` | `UserController.create` | `lib/models/user.ts` |
+| `GET /` (homepage) | `app/page.tsx` → renders `HomeView` | `HomeController.getOverview` (read-only) | `countUsers`, `countDepartments`, `countJobPostings`, `getLatestJobPostings`, `countApplications`, `countAnnouncements`, `getLatestAnnouncements` in the four Models |
+| `GET /users` | `app/users/page.tsx` → renders `UserListView` | `UserController.getAll` | `lib/models/user.ts` |
+| `GET /users/new`, then submit the form | `app/users/new/page.tsx` → renders `UserCreateForm`; Server Action `createUserAction` in `app/users/actions.ts` | `UserController.create` | `lib/models/user.ts` |
 | `GET /users/{id}` | `app/users/[id]/page.tsx` → renders `UserDetailView` | `UserController.getById` | `lib/models/user.ts` |
 | `GET /users/{id}/edit` | `app/users/[id]/edit/page.tsx` → renders `UserEditForm` | `UserController.getById` | `lib/models/user.ts` |
 | Save the edit form | Server Action `updateUserAction` in `app/users/actions.ts` | `UserController.update` | `lib/models/user.ts` |
@@ -291,13 +326,13 @@ Route / Page / Server Action  →  Controller  →  Model  →  lib/db.ts  →  
 | `GET /api/applications`, `GET` / `PATCH` / `DELETE` `/api/applications/{id}` | `app/api/applications/route.ts`, `app/api/applications/[id]/route.ts` | `ApiApplicationController.getAll` / `getById` / `updateStatus` / `delete` | `lib/models/application.ts` |
 | `GET` / `POST` `/api/announcements` | `app/api/announcements/route.ts` | `ApiAnnouncementController.getAll` / `create` | `lib/models/announcement.ts` |
 | `GET` / `PUT` / `PATCH` / `DELETE` `/api/announcements/{id}` | `app/api/announcements/[id]/route.ts` | `ApiAnnouncementController.getById` / `replace` / `update` / `delete` | `lib/models/announcement.ts` |
-| `GET /announcements` | `app/announcements/page.tsx` → renders `AnnouncementListView` + `AnnouncementCreateForm` | `AnnouncementController.getAll` | `lib/models/announcement.ts` |
-| `POST /announcements` (the form) | Server Action `createAnnouncementAction` in `app/announcements/actions.ts` | `AnnouncementController.create` | `lib/models/announcement.ts` |
+| `GET /announcements` | `app/announcements/page.tsx` → renders `AnnouncementListView` | `AnnouncementController.getAll` | `lib/models/announcement.ts` |
+| `GET /announcements/new`, then submit the form | `app/announcements/new/page.tsx` → renders `AnnouncementCreateForm`; Server Action `createAnnouncementAction` in `app/announcements/actions.ts` | `AnnouncementController.create` | `lib/models/announcement.ts` |
 | `GET /announcements/{id}` | `app/announcements/[id]/page.tsx` → renders `AnnouncementDetailView` | `AnnouncementController.getById` | `lib/models/announcement.ts` |
 | `GET /announcements/{id}/edit` | `app/announcements/[id]/edit/page.tsx` → renders `AnnouncementEditForm` | `AnnouncementController.getById` | `lib/models/announcement.ts` |
 | Save the announcement edit form | Server Action `updateAnnouncementAction` in `app/announcements/actions.ts` | `AnnouncementController.update` | `lib/models/announcement.ts` |
 | Announcement **Delete** button | Server Action `deleteAnnouncementAction` in `app/announcements/actions.ts` | `AnnouncementController.delete` | `lib/models/announcement.ts` |
-| `GET /jobs` | `app/jobs/page.tsx` → renders `JobPostingListView` | `JobPostingController.getAll` | `lib/models/jobPosting.ts` |
+| `GET /jobs` | `app/jobs/page.tsx` → renders `JobPostingListView` | `JobPostingController.getAll`, `ApplicationController.getAll` (to count each posting's applications) | `lib/models/jobPosting.ts`, `lib/models/application.ts` |
 | `GET /jobs/new`, then submit the form | `app/jobs/new/page.tsx` → renders `JobPostingCreateForm`; Server Action `createJobPostingAction` in `app/jobs/actions.ts` | `JobPostingController.create` | `lib/models/jobPosting.ts` |
 | `GET /jobs/{id}` | `app/jobs/[id]/page.tsx` → renders `JobPostingDetailView` + `JobApplicationsView` | `JobPostingController.getById`, `ApplicationController.getAllForJob`, `UserController.getAll` (the dropdown) | `lib/models/jobPosting.ts`, `lib/models/application.ts`, `lib/models/user.ts` |
 | `GET /jobs/{id}/edit`, then save | `app/jobs/[id]/edit/page.tsx` → renders `JobPostingEditForm`; Server Action `updateJobPostingAction` | `JobPostingController.getById` / `update` | `lib/models/jobPosting.ts` |
@@ -309,8 +344,8 @@ Route / Page / Server Action  →  Controller  →  Model  →  lib/db.ts  →  
 | MVC role | In this project | Notes |
 |---|---|---|
 | **Model** | `lib/models/user.ts` — the User Model: async CRUD functions (`createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser`) that run **plain, parameterized SQL** on the `users` table. `lib/models/announcement.ts` — the Announcement Model, built the same way (`createAnnouncement`, `getAllAnnouncements`, `getAnnouncementById`, `replaceAnnouncement`, `updateAnnouncement`, `deleteAnnouncement`) on the `announcements` table. `lib/models/jobPosting.ts` — the JobPosting Model (`createJobPosting`, `getAllJobPostings`, `getJobPostingById`, `updateJobPosting`, `deleteJobPosting`) on the `job_postings` table, with its rules in `validateJobPosting`, used by `ApiJobPostingController`; job postings have no owner. `lib/models/application.ts` — the Application Model (`createApplication`, `getAllApplications`, `getApplicationsByJobPostingId`, `getApplicationsByUserId`, `getApplicationById`, `updateApplicationStatus`, `deleteApplication`) on the `applications` join table, with its rules in `validateApplication` / `validateStatus`, used by `ApiApplicationController` and `ApplicationController`; for the pages it also has two **read-only joins**, `getApplicationsWithUsersByJobPostingId` (applicant name and email), `getApplicationsWithJobPostingsByUserId` (job title and company) and `getAllApplicationsWithDetails` (both, for `/applications`). All four talk to PostgreSQL only through `query()` in `lib/db.ts` | No HTTP or Next.js code. The Models map `snake_case` columns to the `camelCase` fields the controllers and views use (e.g. `created_at` → `createdAt`), and return users in the same flat shape as before (`extra` jsonb fields side by side with the columns). Every query uses `$1, $2, …` parameters, never string concatenation, and `INSERT / UPDATE / DELETE … RETURNING` so one query does the job. |
-| **Controller** | `lib/controllers/ApiUserController.ts` and `lib/controllers/UserController.ts`, plus the `route.ts` files, pages and Server Actions that call them. `lib/controllers/ApiAnnouncementController.ts` and `lib/controllers/AnnouncementController.ts` for announcements, called by the `app/api/announcements/` routes and the `app/announcements/` pages. `lib/controllers/JobPostingController.ts` and `lib/controllers/ApplicationController.ts` for the `app/jobs/` pages (and the Applications section on `/users/{id}`); unlike the user and announcement controllers they hold no rules — they turn the Models' results into `{ error }` messages | Validation and request handling live in the controllers; they `await` the async Models. For the JSON API the controllers have **no try/catch of their own**: unexpected errors go to the error handler middleware (`lib/middleware/errorHandler.ts`), which answers 400 when the database rejected the sent data (messages from `lib/controllers/databaseErrors.ts`), 503 when the database can't be reached and 500 otherwise, logging the real error once. The page controllers turn database errors into a friendly `{ error }` (logged on the server). The `route.ts` files, pages and the `actions.ts` files are thin: they call the matching controller function and pass the result on. |
-| **View** | `lib/views/users/` (`UserListView`, `UserDetailView`, `UserCreateForm`, `UserEditForm`, `DeleteUserButton`), `lib/views/announcements/` (`AnnouncementListView`, `AnnouncementDetailView`, `AnnouncementCreateForm`, `AnnouncementEditForm`, `DeleteAnnouncementButton`), `lib/views/jobs/` (`JobPostingListView`, `JobPostingDetailView`, `JobPostingCreateForm`, `JobPostingEditForm`, `DeleteJobPostingButton`), `lib/views/applications/` (`JobApplicationsView`, `ApplicationListView`, `ApplicationCreateForm`, `ApplicationStatusForm`, `DeleteApplicationButton`, `UserApplicationsView`), the shared pieces in `lib/views/ui/` (Button, Card, Badge, PageHeader, Table, Field, …) and the design tokens in `app/globals.css`, `page.tsx` files and `layout.tsx`, plus the JSON bodies the API returns | The components in `lib/views/` contain only markup and Tailwind classes: they get data and Server Actions through props and never call a controller or the Model. The `app/users/` and `app/announcements/` pages fetch the data from `UserController` and hand it to the views. For the API there is no separate view file — `NextResponse.json(...)` in `ApiUserController` *is* the view. |
+| **Controller** | `lib/controllers/ApiUserController.ts` and `lib/controllers/UserController.ts`, plus the `route.ts` files, pages and Server Actions that call them. `lib/controllers/ApiAnnouncementController.ts` and `lib/controllers/AnnouncementController.ts` for announcements, called by the `app/api/announcements/` routes and the `app/announcements/` pages. `lib/controllers/JobPostingController.ts` and `lib/controllers/ApplicationController.ts` for the `app/jobs/` pages (and the Applications section on `/users/{id}`); unlike the user and announcement controllers they hold no rules — they turn the Models' results into `{ error }` messages | Validation and request handling live in the controllers; they `await` the async Models. For the JSON API the controllers have **no try/catch of their own**: unexpected errors go to the error handler middleware (`lib/middleware/errorHandler.ts`), which answers 400 when the database rejected the sent data (messages from `lib/controllers/databaseErrors.ts`), 503 when the database can't be reached and 500 otherwise, logging the real error once. The page controllers turn database errors into a friendly `{ error }` (logged on the server) and put every message people see in the page wording (`lib/controllers/pageMessages.ts`); the API keeps its exact messages. The `route.ts` files, pages and the `actions.ts` files are thin: they call the matching controller function and pass the result on. |
+| **View** | `lib/views/users/` (`UserListView`, `UserDetailView`, `UserCreateForm`, `UserEditForm`, `DeleteUserButton`), `lib/views/announcements/` (`AnnouncementListView`, `AnnouncementDetailView`, `AnnouncementCreateForm`, `AnnouncementEditForm`, `DeleteAnnouncementButton`), `lib/views/jobs/` (`JobPostingListView`, `JobPostingDetailView`, `JobPostingCreateForm`, `JobPostingEditForm`, `DeleteJobPostingButton`), `lib/views/applications/` (`JobApplicationsView`, `ApplicationListView`, `ApplicationCreateForm`, `ApplicationStatusForm`, `DeleteApplicationButton`, `UserApplicationsView`), the shared pieces in `lib/views/ui/` (Button, Card, Badge, PageBand, Panel, Table, Field, …) and the design tokens in `app/globals.css`, `page.tsx` files and `layout.tsx`, plus the JSON bodies the API returns | The components in `lib/views/` contain only markup and Tailwind classes: they get data and Server Actions through props and never call a controller or the Model. The `app/users/` and `app/announcements/` pages fetch the data from `UserController` and hand it to the views. For the API there is no separate view file — `NextResponse.json(...)` in `ApiUserController` *is* the view. |
 
 The mapping is loose in a few places. Next.js itself does the job of a router/front controller (matching a URL to a file), and `/hello`, `/sum` and `/api/health` are small `route.ts` files that do their own work without a Model.
 
@@ -330,12 +365,13 @@ The mapping is loose in a few places. Next.js itself does the job of a router/fr
 
 | Method / action | URL | CRUD |
 |---|---|---|
-| `GET` | `/users` | **Read** — list all users |
-| Server Action `createUserAction` (form `POST`) | `/users` | **Create** |
-| `GET` | `/users/{id}` | **Read** — one user ("User not found" if the id doesn't exist) |
-| `GET` | `/users/{id}/edit` | **Read** — the edit form, pre-filled ("User not found" if missing) |
+| `GET` | `/users` | **Read** — all users as person cards (avatar, name, department, city), each linking to the person's page |
+| `GET` | `/users/new` | The "Add a graduate" form (name required, email and age optional) |
+| Server Action `createUserAction` (form `POST`) | `/users/new` | **Create** — shows the validation error in the form, or redirects to `/users/{id}` |
+| `GET` | `/users/{id}` | **Read** — one user ("We couldn't find that graduate or student." if the id doesn't exist) |
+| `GET` | `/users/{id}/edit` | **Read** — the edit form, pre-filled ("We couldn't find that graduate or student." if missing) |
 | Server Action `updateUserAction` (form `POST`) | `/users/{id}/edit` | **Update** — then redirects to `/users/{id}` |
-| Server Action `deleteUserAction` (form `POST`) | `/users` or `/users/{id}` | **Delete** — then redirects to `/users` |
+| Server Action `deleteUserAction` (form `POST`) | `/users/{id}` | **Delete** — on the person's page, asks first, then redirects to `/users` |
 
 **API (ApiUserController)** — JSON for Postman, scripts and other programs:
 
@@ -356,12 +392,13 @@ Both sides go through the same User Model, so a change made on one side shows up
 
 | Method / action | URL | CRUD |
 |---|---|---|
-| `GET` | `/announcements` | **Read** — list all announcements, newest first |
-| Server Action `createAnnouncementAction` (form `POST`) | `/announcements` | **Create** |
-| `GET` | `/announcements/{id}` | **Read** — one announcement ("Announcement not found" if the id doesn't exist) |
-| `GET` | `/announcements/{id}/edit` | **Read** — the edit form, pre-filled ("Announcement not found" if missing) |
+| `GET` | `/announcements` | **Read** — all announcements as cards (date block, title, preview, author), newest first |
+| `GET` | `/announcements/new` | The "Post an announcement" form (title and content required, author optional) |
+| Server Action `createAnnouncementAction` (form `POST`) | `/announcements/new` | **Create** — shows the validation error in the form, or redirects to `/announcements/{id}` |
+| `GET` | `/announcements/{id}` | **Read** — one announcement ("We couldn't find that announcement." if the id doesn't exist) |
+| `GET` | `/announcements/{id}/edit` | **Read** — the edit form, pre-filled ("We couldn't find that announcement." if missing) |
 | Server Action `updateAnnouncementAction` (form `POST`) | `/announcements/{id}/edit` | **Update** — then redirects to `/announcements/{id}` |
-| Server Action `deleteAnnouncementAction` (form `POST`) | `/announcements` or `/announcements/{id}` | **Delete** — then redirects to `/announcements` |
+| Server Action `deleteAnnouncementAction` (form `POST`) | `/announcements/{id}` | **Delete** — on the announcement's page, asks first, then redirects to `/announcements` |
 
 **API (ApiAnnouncementController)** — JSON for Postman, scripts and other programs:
 
@@ -382,13 +419,13 @@ Both sides go through the same Announcement Model, so a change made on one side 
 
 | Method / action | URL | CRUD |
 |---|---|---|
-| `GET` | `/jobs` | **Read** — list all job postings, newest first, with a "New job posting" button |
-| `GET` | `/jobs/new` | The "New job posting" form (title required, company optional) |
+| `GET` | `/jobs` | **Read** — all job postings as job cards, newest first (company initial, title, company, posted date, applications; the newest with the yellow strip and "New"), and a "Post a job" button |
+| `GET` | `/jobs/new` | The "Post a job" form (title required, company optional) |
 | Server Action `createJobPostingAction` (form `POST`) | `/jobs/new` | **Create** — shows the validation error in the form, or redirects to `/jobs/{id}` |
-| `GET` | `/jobs/{id}` | **Read** — one posting and its **Applications** section ("Job posting not found" if the id doesn't exist or isn't a whole number) |
-| `GET` | `/jobs/{id}/edit` | **Read** — the edit form, pre-filled, with a Delete button ("Job posting not found" if missing) |
+| `GET` | `/jobs/{id}` | **Read** — one posting and its **Applications** section ("We couldn't find that job posting." if the id doesn't exist or isn't a whole number) |
+| `GET` | `/jobs/{id}/edit` | **Read** — the edit form, pre-filled, with a Delete button ("We couldn't find that job posting." if missing) |
 | Server Action `updateJobPostingAction` (form `POST`) | `/jobs/{id}/edit` | **Update** — then redirects to `/jobs/{id}` |
-| Server Action `deleteJobPostingAction` (form `POST`) | `/jobs`, `/jobs/{id}` or `/jobs/{id}/edit` | **Delete** (asks for confirmation; its applications are deleted too) — then redirects to `/jobs` |
+| Server Action `deleteJobPostingAction` (form `POST`) | `/jobs/{id}` or `/jobs/{id}/edit` | **Delete** (asks for confirmation; its applications are deleted too) — then redirects to `/jobs` |
 
 **API (ApiJobPostingController)** — JSON for Postman, scripts and other programs. Bodies can be JSON or form-data:
 
@@ -413,7 +450,7 @@ Deleting a user doesn't delete any job posting (postings have no owner). Users a
 | Server Action `updateApplicationStatusAction` (form `POST`) | `/jobs/{id}` | **Update** — the status only (`pending`, `accepted`, `rejected`) |
 | Server Action `deleteApplicationAction` (form `POST`) | `/jobs/{id}` | **Delete** — the Remove button (asks for confirmation) |
 | `GET` | `/users/{id}` | **Read** — the job postings this user applied to: title (links to `/jobs/{id}`), company, status, date |
-| `GET` | `/applications` | **Read** — every application, newest first: applicant (links to `/users/{id}`) and email, job posting (links to `/jobs/{id}`) and company, status badge, date; an empty state when there are none |
+| `GET` | `/applications` | **Read** — every application, newest first: applicant (links to `/users/{id}`) and email, job posting (links to `/jobs/{id}`) and company, status badge, short date, and a "Browse job postings" button; with none, the empty state "No applications yet." with that one button |
 | Server Actions `updateApplicationStatusAction` / `deleteApplicationAction` (form `POST`) | `/applications` | **Update** the status / **Delete** — the same actions (and confirmation) as on `/jobs/{id}` |
 
 **API (ApiApplicationController)** — a user **applies to** a job posting; `applications` is the join table between users and job postings (**many-to-many**, see [ddd.md](ddd.md#-applications--implemented-migration-005)). Bodies can be JSON or form-data; `status` is `pending` (the default), `accepted` or `rejected`:
@@ -439,27 +476,30 @@ alumni/
 ├── app/
 │   ├── layout.tsx                    [View]        root HTML layout around every page
 │   ├── not-found.tsx                 [View]        the generic 404 page
+│   ├── error.tsx, global-error.tsx   [View]        the 500 page for browsers
 │   ├── globals.css                   [View]        global styles + design tokens
 │   ├── favicon.ico                   [View]        tab icon
-│   ├── page.tsx                      [View]        /
+│   ├── page.tsx                      [Page]        GET / → rendered by lib/views/home (no data, no controller)
 │   ├── about/page.tsx                [View]        /about
 │   ├── users/page.tsx                [Page]        GET /users      → UserController, rendered by lib/views
+│   ├── users/new/page.tsx            [Page]        GET /users/new  rendered by lib/views
 │   ├── users/actions.ts              [Action]      create / update / delete → UserController
 │   ├── users/[id]/page.tsx           [Page]        GET /users/{id} → UserController, rendered by lib/views
 │   ├── users/[id]/edit/page.tsx      [Page]        GET /users/{id}/edit → UserController, rendered by lib/views
-│   ├── users/[id]/not-found.tsx      [View]        "User not found" (404)
+│   ├── users/[id]/not-found.tsx      [View]        "We couldn't find that graduate or student." (404)
 │   ├── announcements/page.tsx        [Page]        GET /announcements      → AnnouncementController, rendered by lib/views
+│   ├── announcements/new/page.tsx    [Page]        GET /announcements/new  rendered by lib/views
 │   ├── announcements/actions.ts      [Action]      create / update / delete → AnnouncementController
 │   ├── announcements/[id]/page.tsx   [Page]        GET /announcements/{id} → AnnouncementController, rendered by lib/views
 │   ├── announcements/[id]/edit/page.tsx  [Page]    GET /announcements/{id}/edit → AnnouncementController, rendered by lib/views
-│   ├── announcements/[id]/not-found.tsx  [View]    "Announcement not found" (404)
+│   ├── announcements/[id]/not-found.tsx  [View]    "We couldn't find that announcement." (404)
 │   ├── applications/page.tsx         [Page]        GET /applications → ApplicationController, rendered by lib/views
-│   ├── jobs/page.tsx                 [Page]        GET /jobs      → JobPostingController, rendered by lib/views
+│   ├── jobs/page.tsx                 [Page]        GET /jobs      → JobPostingController, ApplicationController, rendered by lib/views
 │   ├── jobs/actions.ts               [Action]      job postings + applications → JobPostingController, ApplicationController
 │   ├── jobs/new/page.tsx             [Page]        GET /jobs/new  rendered by lib/views
 │   ├── jobs/[id]/page.tsx            [Page]        GET /jobs/{id} → JobPostingController, ApplicationController, rendered by lib/views
 │   ├── jobs/[id]/edit/page.tsx       [Page]        GET /jobs/{id}/edit → JobPostingController, rendered by lib/views
-│   ├── jobs/[id]/not-found.tsx       [View]        "Job posting not found" (404)
+│   ├── jobs/[id]/not-found.tsx       [View]        "We couldn't find that job posting." (404)
 │   ├── hello/route.ts                [Controller]  /hello
 │   ├── hello/[name]/route.ts         [Controller]  /hello/{name}
 │   ├── sum/[number1]/[number2]/route.ts  [Controller]  /sum/{a}/{b}
@@ -494,24 +534,25 @@ alumni/
 │   │   ├── ApiJobPostingController.ts  [Controller]  job posting CRUD for the JSON API
 │   │   ├── ApiApplicationController.ts [Controller]  application CRUD for the JSON API
 │   │   ├── JobPostingController.ts   [Controller]  job posting CRUD for pages
-│   │   └── ApplicationController.ts  [Controller]  applications for pages
+│   │   ├── ApplicationController.ts  [Controller]  applications for pages
+│   │   └── HomeController.ts         [Controller]  the homepage's counts and newest records (read-only)
 │   ├── models/user.ts                [Model]       users table: CRUD in plain SQL
 │   ├── models/announcement.ts        [Model]       announcements table: CRUD in plain SQL
 │   ├── models/jobPosting.ts          [Model]       job_postings table: rules + CRUD in plain SQL
 │   ├── models/application.ts         [Model]       applications table: rules + CRUD in plain SQL
 │   ├── views/users/UserListView.tsx  [View]        table of users
 │   ├── views/users/UserDetailView.tsx  [View]      one user
-│   ├── views/users/UserCreateForm.tsx  [View]      "Add a user" form
+│   ├── views/users/UserCreateForm.tsx  [View]      "Add a graduate" form (/users/new)
 │   ├── views/users/UserEditForm.tsx  [View]        "Edit user" form
 │   ├── views/users/DeleteUserButton.tsx  [View]    Delete button with confirmation
 │   ├── views/announcements/AnnouncementListView.tsx    [View]  table of announcements
 │   ├── views/announcements/AnnouncementDetailView.tsx  [View]  one announcement
-│   ├── views/announcements/AnnouncementCreateForm.tsx  [View]  "Add an announcement" form
+│   ├── views/announcements/AnnouncementCreateForm.tsx  [View]  "Post an announcement" form (/announcements/new)
 │   ├── views/announcements/AnnouncementEditForm.tsx    [View]  "Edit announcement" form
 │   ├── views/announcements/DeleteAnnouncementButton.tsx  [View]  Delete button with confirmation
 │   ├── views/jobs/JobPostingListView.tsx       [View]  table of job postings
 │   ├── views/jobs/JobPostingDetailView.tsx     [View]  one job posting
-│   ├── views/jobs/JobPostingCreateForm.tsx     [View]  "New job posting" form
+│   ├── views/jobs/JobPostingCreateForm.tsx     [View]  "Post a job" form
 │   ├── views/jobs/JobPostingEditForm.tsx       [View]  "Edit job posting" form
 │   ├── views/jobs/DeleteJobPostingButton.tsx   [View]  Delete button with confirmation
 │   ├── views/applications/JobApplicationsView.tsx     [View]  a posting's applications
@@ -520,7 +561,8 @@ alumni/
 │   ├── views/applications/DeleteApplicationButton.tsx [View]  Remove button with confirmation
 │   ├── views/applications/UserApplicationsView.tsx    [View]  a user's applications (read-only)
 │   ├── views/applications/ApplicationListView.tsx     [View]  table on /applications
-│   ├── views/ui/                     [View]        shared UI pieces (Button, Card, Badge, PageHeader, Table, Field, NotFoundView, …)
+│   ├── views/home/HomeView.tsx       [View]        the homepage
+│   ├── views/ui/                     [View]        shared UI pieces (Button, Card, Badge, PageBand, Panel, Table, Field, NotFoundView, …)
 │   └── openapi.ts                    [Other]       API documentation (OpenAPI spec)
 ├── proxy.ts                          [Middleware]  pages: 308 redirects + one log line per page request
 ├── logs/                             [Other]       error.log (500 / 503 entries), git-ignored
@@ -530,29 +572,35 @@ alumni/
 | File / folder | What it does | MVC role |
 |---|---|---|
 | `app/` | All routes. Each folder is a URL segment; `page.tsx` = a page, `route.ts` = an API endpoint | — (routing) |
-| `app/layout.tsx` | Root `<html>`/`<body>` wrapper, fonts and page metadata shared by every page; renders the site header (`SiteHeader`) above every page | View |
+| `app/layout.tsx` | Root `<html>`/`<body>` wrapper, fonts and page metadata shared by every page; renders the site header (`SiteHeader`) above every page; renders the site footer (`SiteFooter`) below every page | View |
 | `app/globals.css` | Tailwind CSS import and the **design tokens** (`@theme`): brand colors from the logo, neutrals, danger, radius, shadow, fonts, plus the page background and the green keyboard-focus ring. The only place colors are defined | View |
 | `app/favicon.ico` | Browser tab icon | View |
-| `app/page.tsx` | `GET /` — temporary homepage with cards linking to **Users**, **Announcements**, **Jobs** and **Applications** | View |
-| `app/not-found.tsx` | The generic 404 page (HTTP 404) for every URL no page matches, in the shared look (`NotFoundView`): "Page not found", the asked-for path, links to Home, Users, Jobs, Applications and Announcements | View |
-| `app/about/page.tsx` | `GET /about` — temporary about page | View |
-| `app/users/page.tsx` | `GET /users` — calls `UserController.getAll()` and renders `UserCreateForm` above `UserListView`. Renders on every request (`connection()`), so new users always show | Page (Route → Controller → View) |
-| `app/users/actions.ts` | The three Server Actions behind the page forms. `createUserAction` → `UserController.create`, returns the error or a success message. `updateUserAction` → `UserController.update`, returns the error or redirects to `/users/{id}`. `deleteUserAction` → `UserController.delete`, returns "not found" or redirects to `/users`. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
+| `app/page.tsx` | `GET /` — the homepage: calls `HomeController.getOverview()` and renders `HomeView`. Renders on every request (`connection()`), so the numbers are always current | Page (Route → Controller → View) |
+| `lib/controllers/HomeController.ts` | Page-side controller for the homepage: `getOverview()` asks the Models, in parallel, for the counts (people, departments, job postings, applications, announcements), the 7 newest users (split into the hero's 3 "Recently joined" and the next 4 for "Meet our community", so nobody appears twice), the top 5 departments with their number of users, the 3 newest job postings (each with its applications count, counted from the existing `getAllApplications()`) and the 2 newest announcements. Read-only; no SQL, no rules. People, not alumni / students: the `users` table has no field that tells them apart | Controller |
+| `lib/views/home/HomeView.tsx` | The homepage (DESIGN.md §9), all real data: a two-column green `Hero` — **IU Alumni**, the promise, one primary button **Find a graduate** (white on green) and a secondary **Browse job postings** on the left, a "Recently joined" stack of the 3 newest users on the right; the `StatsStrip` with the five counts over the band's bottom edge; "Meet our community" (4 `PersonCard`s); "Latest job postings" (3 job cards, the newest with the yellow top strip and a "New" chip); and on the light action-tint band "People by department" (`BarList`, top 5) beside "Latest announcements" (2 cards). Each section is a `Panel` with a header row. Empty lists show `EmptyState` with a text link only, so the page keeps one primary button | View |
+| `app/not-found.tsx` | The generic 404 page (HTTP 404) for every URL no page matches, in the shared look (`NotFoundView`): "We couldn't find that page.", "The address may be mistyped, or the page may have moved.", the asked-for path, links to Home, Users, Jobs, Applications and Announcements | View |
+| `app/error.tsx` | The designed **500 page** for browsers (Next.js error boundary, a Client Component): shown with HTTP 500 when a page throws on the server (e.g. the database can't be reached), inside the normal layout, in `ServerErrorView`. `retry()` re-renders the page | View |
+| `app/global-error.tsx` | The same 500 page when the root layout itself fails: its own `<html>` / `<body>`, imports `globals.css`, a `<title>` element (no metadata in an error boundary) | View |
+| `app/about/page.tsx` | `GET /about` — what IU Alumni is (name, promise, who it is for), what you can do here (links to the four sections) and how it is built; one primary button **Find a graduate** | View |
+| `app/users/page.tsx` | `GET /users` — calls `UserController.getAll()` and renders `UserListView`; the header's one primary button **Add a graduate** goes to `/users/new` (none while the list is empty: the empty state has it). Renders on every request (`connection()`), so new users always show | Page (Route → Controller → View) |
+| `app/users/new/page.tsx` | `GET /users/new` — renders `UserCreateForm` with `createUserAction` | Page (Route → View) |
+| `app/users/actions.ts` | The three Server Actions behind the page forms. `createUserAction` (the form on `/users/new`) → `UserController.create`, returns the error (keeping what was typed) or redirects to the new user's page `/users/{id}`. `updateUserAction` → `UserController.update`, returns the error or redirects to `/users/{id}`. `deleteUserAction` → `UserController.delete`, returns "not found" or redirects to `/users`. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
 | `app/users/[id]/page.tsx` | `GET /users/{id}` — calls `UserController.getById(id)` and renders `UserDetailView`, then `ApplicationController.getAllForUser` for the read-only **Applications** section (`UserApplicationsView`); unknown id → `notFound()` | Page (Route → Controller → View) |
 | `app/users/[id]/edit/page.tsx` | `GET /users/{id}/edit` — calls `UserController.getById(id)` and renders `UserEditForm`; unknown id → `notFound()` | Page (Route → Controller → View) |
-| `app/users/[id]/not-found.tsx` | The "User not found" page, returned with HTTP 404 for `/users/{id}` and `/users/{id}/edit`, in the shared 404 look (`SectionNotFound`); an invalid id (`abc`, `0`, `1.5`) shows "Page not found" with the reason "Invalid id" | View |
-| `app/announcements/page.tsx` | `GET /announcements` — calls `AnnouncementController.getAll()` and renders `AnnouncementCreateForm` above `AnnouncementListView`. Renders on every request (`connection()`) | Page (Route → Controller → View) |
-| `app/announcements/actions.ts` | The three Server Actions behind the announcement forms. `createAnnouncementAction` → `AnnouncementController.create`, returns the error or a success message. `updateAnnouncementAction` → `AnnouncementController.update`, returns the error or redirects to `/announcements/{id}`. `deleteAnnouncementAction` → `AnnouncementController.delete`, returns "not found" or redirects to `/announcements`. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
+| `app/users/[id]/not-found.tsx` | The "We couldn't find that graduate or student." page, returned with HTTP 404 for `/users/{id}` and `/users/{id}/edit`, in the shared 404 look (`SectionNotFound`); an invalid id (`abc`, `0`, `1.5`) shows "We couldn't find that page." with "“abc” isn't a … number, so this link can't be right." | View |
+| `app/announcements/page.tsx` | `GET /announcements` — calls `AnnouncementController.getAll()` and renders `AnnouncementListView`; the header's one primary button **Post an announcement** goes to `/announcements/new` (none while the list is empty: the empty state has it). Renders on every request (`connection()`) | Page (Route → Controller → View) |
+| `app/announcements/new/page.tsx` | `GET /announcements/new` — renders `AnnouncementCreateForm` with `createAnnouncementAction` | Page (Route → View) |
+| `app/announcements/actions.ts` | The three Server Actions behind the announcement forms. `createAnnouncementAction` (the form on `/announcements/new`) → `AnnouncementController.create`, returns the error (keeping what was typed) or redirects to the new announcement's page `/announcements/{id}`. `updateAnnouncementAction` → `AnnouncementController.update`, returns the error or redirects to `/announcements/{id}`. `deleteAnnouncementAction` → `AnnouncementController.delete`, returns "not found" or redirects to `/announcements`. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
 | `app/announcements/[id]/page.tsx` | `GET /announcements/{id}` — calls `AnnouncementController.getById(id)` and renders `AnnouncementDetailView`; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
 | `app/announcements/[id]/edit/page.tsx` | `GET /announcements/{id}/edit` — calls `AnnouncementController.getById(id)` and renders `AnnouncementEditForm`; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
-| `app/announcements/[id]/not-found.tsx` | The "Announcement not found" page, returned with HTTP 404 for `/announcements/{id}` and `/announcements/{id}/edit`, in the shared 404 look (`SectionNotFound`); an invalid id (`abc`, `0`, `1.5`) shows "Page not found" with the reason "Invalid id" | View |
-| `app/jobs/page.tsx` | `GET /jobs` — calls `JobPostingController.getAll()` and renders `JobPostingListView` with a "New job posting" link. Renders on every request (`connection()`) | Page (Route → Controller → View) |
+| `app/announcements/[id]/not-found.tsx` | The "We couldn't find that announcement." page, returned with HTTP 404 for `/announcements/{id}` and `/announcements/{id}/edit`, in the shared 404 look (`SectionNotFound`); an invalid id (`abc`, `0`, `1.5`) shows "We couldn't find that page." with "“abc” isn't a … number, so this link can't be right." | View |
+| `app/jobs/page.tsx` | `GET /jobs` — calls `JobPostingController.getAll()` and `ApplicationController.getAll()` (counting each posting's applications from the existing list, no new query) and renders `JobPostingListView`; the header's one primary button **Post a job** goes to `/jobs/new` (none while the list is empty: the empty state has it). Renders on every request (`connection()`) | Page (Route → Controller → View) |
 | `app/jobs/new/page.tsx` | `GET /jobs/new` — renders `JobPostingCreateForm` with `createJobPostingAction` | Page (Route → View) |
 | `app/jobs/actions.ts` | The Server Actions behind the job posting and application forms. `createJobPostingAction` → `JobPostingController.create`, returns the error or redirects to `/jobs/{id}`; `updateJobPostingAction` → `update`, redirects to `/jobs/{id}`; `deleteJobPostingAction` → `delete`, redirects to `/jobs`. `createApplicationAction` → `ApplicationController.createForJob`, `updateApplicationStatusAction` → `updateStatus`, `deleteApplicationAction` → `delete`, each returning the error or refreshing the pages. Each calls `revalidatePath` after a change | Controller entry points (Server Actions) |
-| `app/jobs/[id]/page.tsx` | `GET /jobs/{id}` — calls `JobPostingController.getById(id)`, `ApplicationController.getAllForJob` and `UserController.getAll` (for the dropdown) and renders `JobPostingDetailView` + `JobApplicationsView`; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
+| `app/jobs/[id]/page.tsx` | `GET /jobs/{id}` — calls `JobPostingController.getById(id)`, `ApplicationController.getAllForJob` and `UserController.getAll` (for the dropdown) and renders `JobPostingDetailView` + `JobApplicationsView`; unknown or invalid id → `notFound()`. Narrow detail layout; the tab shows the posting's title | Page (Route → Controller → View) |
 | `app/jobs/[id]/edit/page.tsx` | `GET /jobs/{id}/edit` — calls `JobPostingController.getById(id)` and renders `JobPostingEditForm` and a Delete button; unknown or invalid id → `notFound()` | Page (Route → Controller → View) |
-| `app/jobs/[id]/not-found.tsx` | The "Job posting not found" page, returned with HTTP 404 for `/jobs/{id}` and `/jobs/{id}/edit`, in the shared 404 look (`SectionNotFound`); an invalid id (`abc`, `0`, `1.5`) shows "Page not found" with the reason "Invalid id" | View |
-| `app/applications/page.tsx` | `GET /applications` — calls `ApplicationController.getAll()` and renders `ApplicationListView` with the status and remove Server Actions from `app/jobs/actions.ts`. Renders on every request (`connection()`) | Page (Route → Controller → View) |
+| `app/jobs/[id]/not-found.tsx` | The "We couldn't find that job posting." page, returned with HTTP 404 for `/jobs/{id}` and `/jobs/{id}/edit`, in the shared 404 look (`SectionNotFound`); an invalid id (`abc`, `0`, `1.5`) shows "We couldn't find that page." with "“abc” isn't a … number, so this link can't be right." | View |
+| `app/applications/page.tsx` | `GET /applications` — calls `ApplicationController.getAll()` and renders `ApplicationListView` with the status and remove Server Actions from `app/jobs/actions.ts`; the header's one primary button **Browse job postings** goes to `/jobs` (applications are added from a posting's page; none while the list is empty: the empty state has it). Renders on every request (`connection()`). The page band, the counts by status (pending, accepted, rejected — counted from the same list) as a small `StatsStrip` over it, and the table in a `Panel` | Page (Route → Controller → View) |
 | `app/hello/route.ts` | `GET /hello` — returns plain text `Hello, World!` | Controller (no Model) |
 | `app/hello/[name]/route.ts` | `GET /hello/{name}` — reads the `name` URL parameter, returns `Hello, {name}!` | Controller (no Model) |
 | `app/sum/[number1]/[number2]/route.ts` | `GET /sum/{a}/{b}` — validates two URL parameters as numbers and returns their sum, or a 400 error | Controller (no Model) |
@@ -574,29 +622,29 @@ alumni/
 | `lib/controllers/AnnouncementController.ts` | Page-side announcement controller: `create`, `getAll`, `getById`, `update`, `delete`. Takes plain arguments and returns `{ announcement }`, `{ announcements }`, `{ id }` or `{ error }` — no `Request` / `NextResponse`. Also exports the shared validation rule (`validateAnnouncement`) and id check (`parseId`). Used by the `/announcements` pages | Controller |
 | `lib/controllers/JobPostingController.ts` | Page-side job posting controller: `create`, `getAll`, `getById`, `update`, `delete`. Takes plain arguments and returns `{ jobPosting }`, `{ jobPostings }`, `{ id }` or `{ error }` (the JobPosting Model's message, or a friendly one if saving failed). No rules of its own. Used by the `/jobs` pages | Controller |
 | `lib/controllers/ApplicationController.ts` | Page-side application controller: `getAll` (every application with its applicant and job posting, for `/applications`), `createForJob`, `getAllForJob` (with each applicant's name and email), `getAllForUser` (with each job posting's title and company), `updateStatus`, `delete`; also `STATUSES` for the dropdowns. Returns plain objects or `{ error }` ("User already applied to this job posting" for a second application). No rules of its own. Used by `/jobs/{id}` and `/users/{id}` | Controller |
-| `lib/views/users/UserListView.tsx` | Receives `users` and the delete action as props and renders the table (id, name, email, department, age) with **View**, **Edit** and **Delete** for each row; shows a short message when the list is empty | View |
-| `lib/views/users/UserDetailView.tsx` | Receives one `user` and the delete action; shows every field, an **Edit** link, a **Delete** button and a link back to the list | View |
-| `lib/views/users/UserCreateForm.tsx` | Receives the Server Action as a prop and renders the form (name required, email, age). Shows the action's validation error or success message, keeps typed values after an error, and disables the button while saving. A Client Component only because React's `useActionState` runs in the browser | View |
+| `lib/views/users/UserListView.tsx` | The people on `/users` as a grid of `PersonCard`s (avatar, name, department, city), each linking to the person's page (where Edit and Delete are). An empty list shows `EmptyState` "No graduates yet." with its one button **Add a graduate** | View |
+| `lib/views/users/UserDetailView.tsx` | The profile header card on `/users/{id}` (`DetailHeader`, over the page band): a large initials avatar, the name, the email, chips for department, city, age and any other extra field; **Edit** (secondary) and **Delete** (danger, asks first) — no primary button | View |
+| `lib/views/users/UserCreateForm.tsx` | The "Add a graduate" form on `/users/new`: receives the Server Action as a prop and renders name (required), email and age, one primary **Add graduate** button and **Cancel** (→ `/users`). Shows the action's validation error, keeps typed values after an error, and disables the button while saving; on success the action redirects. A Client Component only because React's `useActionState` runs in the browser | View |
 | `lib/views/users/UserEditForm.tsx` | Same fields as the create form, pre-filled with the user's current values; shows the update action's validation error and keeps what was typed. Client Component (`useActionState`) | View |
 | `lib/views/users/DeleteUserButton.tsx` | A small form with a **Delete** button: asks "Delete user …?" in the browser, runs the delete action, and shows its error (e.g. the user was already deleted). Client Component (confirmation + `useActionState`) | View |
-| `lib/views/announcements/AnnouncementListView.tsx` | Receives `announcements` and the delete action; renders a table (title, author, date) with **View**, **Edit** and **Delete** for each row; shows a short message when the list is empty | View |
-| `lib/views/announcements/AnnouncementDetailView.tsx` | Receives one `announcement` and the delete action; shows the title, author, posted / updated dates and full content, an **Edit** link, a **Delete** button and a link back to the list | View |
-| `lib/views/announcements/AnnouncementCreateForm.tsx` | Form with title (required), content (required, a textarea) and author. Shows the create action's validation error or success message and keeps typed values after an error. Client Component (`useActionState`) | View |
-| `lib/views/announcements/AnnouncementEditForm.tsx` | Same fields, pre-filled with the announcement's current values; shows the update action's validation error. Client Component (`useActionState`) | View |
+| `lib/views/announcements/AnnouncementListView.tsx` | The announcements on `/announcements` as `AnnouncementCard`s (date block, title, two-line preview, author), each linking to the announcement's page (where Edit and Delete are). An empty list shows `EmptyState` "No announcements yet." with its one button **Post an announcement** | View |
+| `lib/views/announcements/AnnouncementDetailView.tsx` | One announcement (`DetailHeader`, over the page band): a large date block, the title, chips for the author and the dates, **Edit** (secondary) and **Delete** (danger, asks first) — no primary button; then the full text in the same card | View |
+| `lib/views/announcements/AnnouncementCreateForm.tsx` | The "Post an announcement" form on `/announcements/new`: title (required), content (required, a textarea) and author (optional), one primary **Post announcement** button and **Cancel**. Shows the create action's validation error and keeps typed values after an error; on success the action redirects. Client Component (`useActionState`) | View |
+| `lib/views/announcements/AnnouncementEditForm.tsx` | The edit form on `/announcements/{id}/edit`: the same fields, hints and look as the create form, pre-filled with the current values; shows the update action's validation error and keeps what was typed; **Save changes** and **Cancel**. Client Component (`useActionState`) | View |
 | `lib/views/announcements/DeleteAnnouncementButton.tsx` | A small form with a **Delete** button: asks "Delete announcement …?" in the browser, runs the delete action, and shows its error (e.g. already deleted). Client Component | View |
-| `lib/views/announcements/formatDate.ts` | Formats an ISO date for display (e.g. `10/10/2026, 15:24:58 UTC`) | View (helper) |
-| `lib/views/jobs/JobPostingListView.tsx` | Receives `jobPostings` and the delete action; renders a table (title, company, date) with **View**, **Edit** and **Delete** for each row; shows a short message when the list is empty | View |
-| `lib/views/jobs/JobPostingDetailView.tsx` | Receives one `jobPosting` and the delete action; shows the title, company, posted / updated dates, an **Edit** link, a **Delete** button and a link back to the list | View |
-| `lib/views/jobs/JobPostingCreateForm.tsx` | Form with title (required) and company. Shows the create action's validation error and keeps typed values after an error. Client Component (`useActionState`) | View |
-| `lib/views/jobs/JobPostingEditForm.tsx` | Same fields, pre-filled with the posting's current values; shows the update action's validation error. Client Component (`useActionState`) | View |
+| `lib/views/announcements/formatDate.ts` | `formatShortDate`: an ISO date as a short date for display, e.g. `21 Oct 2026` (UTC) | View (helper) |
+| `lib/views/jobs/JobPostingListView.tsx` | The postings on `/jobs` as `JobCard`s (company initial, title, company, posted date, applications; the newest with the yellow strip and "New"), each linking to the posting's page (where Edit, Delete and the applicants are). An empty list shows `EmptyState` "No job postings yet. Be the first to post one." with its one button **Post a job** | View |
+| `lib/views/jobs/JobPostingDetailView.tsx` | The posting header card on `/jobs/{id}` (`DetailHeader`, over the page band): the company initial, the title, the company, chips for the posted / updated date and the applications count; **Edit** (secondary) and **Delete** (danger, asks first) — the page's one primary button is "Add application" below | View |
+| `lib/views/jobs/JobPostingCreateForm.tsx` | The "Post a job" form on `/jobs/new`: title (required) and company (optional), one primary **Post job** button and **Cancel**. Shows the create action's validation error and keeps typed values after an error; on success the action redirects to the new posting. Client Component (`useActionState`) | View |
+| `lib/views/jobs/JobPostingEditForm.tsx` | The edit form on `/jobs/{id}/edit`: the same fields, hints and look as "Post a job", pre-filled with the posting's current values; shows the update action's validation error and keeps what was typed; **Save changes** and **Cancel** (Delete is in the page header). Client Component (`useActionState`) | View |
 | `lib/views/jobs/DeleteJobPostingButton.tsx` | A small form with a **Delete** button: asks "Delete job posting …? Its applications are deleted too." in the browser, runs the delete action, and shows its error. Client Component | View |
-| `lib/views/applications/JobApplicationsView.tsx` | The **Applications** section of `/jobs/{id}`: a table of applications (applicant name linking to `/users/{id}`, email, status, date) with `ApplicationStatusForm` and `DeleteApplicationButton` in each row, and `ApplicationCreateForm` below | View |
-| `lib/views/applications/ApplicationCreateForm.tsx` | "Add application" form: a dropdown of all users. Shows the action's error (e.g. "User already applied to this job posting") or "Application added.". Client Component (`useActionState`) | View |
+| `lib/views/applications/JobApplicationsView.tsx` | The **Applicants** `Panel` of `/jobs/{id}`: the shared table (avatar + name → `/users/{id}` with email and applied date, a `StatusBadge`, and the right-aligned `ApplicationStatusForm` / `DeleteApplicationButton`), then the "Add application" form in a light box (the page's one primary button). With no applications: `EmptyState` "No one has applied yet." with the same form box right under it (it stays in the same place, so the form keeps its "Application added." message). With no users at all: a text link to add a graduate first | View |
+| `lib/views/applications/ApplicationCreateForm.tsx` | "Add application" form: a dropdown of all graduates and students and the **Add application** button (the page's one primary button). No card of its own (`JobApplicationsView` places it). Shows the action's error (e.g. "User already applied to this job posting") or "Application added.". Client Component (`useActionState`) | View |
 | `lib/views/applications/ApplicationStatusForm.tsx` | A status dropdown (`pending`, `accepted`, `rejected`) with an **Update** button for one application; shows the action's error. Client Component (`useActionState`) | View |
 | `lib/views/applications/DeleteApplicationButton.tsx` | A small form with a **Remove** button: asks "Remove …'s application?" in the browser, runs the delete action, and shows its error. Client Component | View |
-| `lib/views/applications/UserApplicationsView.tsx` | The read-only **Applications** section of `/users/{id}`: job title (linking to `/jobs/{id}`), company, status and date for each application | View |
-| `lib/views/applications/ApplicationListView.tsx` | The table on `/applications`: applicant (name → `/users/{id}`, email), job posting (title → `/jobs/{id}`, company), `StatusBadge`, date, and the same `ApplicationStatusForm` / `DeleteApplicationButton` as on a job posting's page; an empty state when there are none | View |
-| `lib/views/ui/` | Shared UI pieces used by every view and page, so no long class lists are repeated: `Button` / `ButtonLink` (primary, secondary, danger), `Card`, `Badge` / `StatusBadge`, `PageHeader`, `PageContainer`, `Section`, `Table` (`Table`, `TableHead`, `Th`, `TableBody`, `Tr`, `Td`), `Field` (`Field`, `Input`, `Textarea`, `Select`, `FormMessage`), `EmptyState`, `TextLink`, `SiteHeader` and `NavLinks`. Markup and theme-token classes only | View |
+| `lib/views/applications/UserApplicationsView.tsx` | The read-only **Applications** `Panel` of `/users/{id}`: the shared table (company initial + job title → `/jobs/{id}`, company, status badge, short date). With none: `EmptyState` "No applications yet." with its one button **Browse job postings**, the page's only primary button | View |
+| `lib/views/applications/ApplicationListView.tsx` | The table on `/applications`, inside the page's Panel: avatar + applicant (name → `/users/{id}`, email), job posting (title → `/jobs/{id}`, company), `StatusBadge`, short date, and, right-aligned, the same `ApplicationStatusForm` / `DeleteApplicationButton` as on a job posting's page. An empty list shows `EmptyState` "No applications yet." with its one button **Browse job postings** | View |
+| `lib/views/ui/` | Shared UI pieces used by every view and page, so no long class lists are repeated: `Button` / `ButtonLink` (primary, secondary, danger, and `onAction` / `onActionSecondary` for the green bands), `Card` (`cardClasses`), `Badge` / `StatusBadge` (Pending / Accepted / Rejected), `PageContainer`, `Table` (`Table`, `TableHead`, `Th`, `TableBody`, `Tr`, `Td`), `Field` (`Field`, `Input`, `Textarea`, `Select`, `FormMessage`), `EmptyState` (illustration, one action, optional secondary link), `TextLink`, `SiteHeader`, `NavLinks` and `SiteFooter`. Richer layer (DESIGN.md §9): `Hero`, `PageBand`, `DetailHeader`, `DateBlock`, `StatsStrip`, `BarList`, `Panel`, `Inset`, `LinkCard`, `Avatar`, `IconCircle`, `Chip`, the inline SVG `icons` and `EmptyIllustration`. Markup and theme-token classes only | View |
 | `public/logo.png` | The İstanbul Üniversitesi logo (unchanged), shown in the header with `next/image` (40 × 40, alt "İstanbul Üniversitesi logo") | View (static file) |
 | `lib/db.ts` | One shared `pg` connection pool, created lazily on the first query (so `npm run build` works without a database) and cached on `globalThis` (so dev hot reloads reuse it), plus the `query(text, params)` helper the Models use. Throws a clear error if `DATABASE_URL` is missing, and never logs the connection string | Model (data access) |
 | `lib/middleware/notFoundGuard.ts` | The 404 guard: `withExists("user" \| "jobPosting" \| "application" \| "announcement")` reads the `[id]` from the route, asks the Model's get-by-id function whether the row exists, and answers `notFound("No … with id …")` **without calling the next step** if it doesn't. Ids that aren't whole numbers above 0 are left to the controller (today's answer); a failed lookup (e.g. the database is down) throws on to the error handler (503 / 500) | Middleware |
@@ -604,17 +652,20 @@ alumni/
 | `lib/log/errorFile.ts` | `appendErrorEntry({ method, path, status, error })`: appends one readable entry per server error (500 / 503) to `logs/error.log` — Istanbul date and time, method, path, status, the error's name and message, and its stack trace — separated by a line of `=`. Creates `logs/` if it is missing, only appends, and never throws (a failure is reported in the terminal; the request still gets its answer). Never writes bodies, headers, cookies or query values | Middleware (helper) |
 | `proxy.ts` | Next.js Proxy (the old `middleware.ts`): runs before every page request; answers **308** to the canonical URL when `canonicalPagePath` gives one (query string kept), and writes one line with `logPageRequest` (`HH:MM:SS METHOD PATH - -`, or `308 -` for its own redirects). Its `matcher` skips `/api`, `/_next/static`, `/_next/image`, `favicon.ico`, files from `public/`, link prefetches and Next.js's internal re-render after a Server Action redirect. Otherwise it returns `NextResponse.next()`: the request goes on unchanged | Middleware (pages) |
 | `lib/routing/pageRedirect.ts` | `canonicalPagePath(pathname)`: the redirect rules for page URLs — singular → plural and uppercase → lowercase for the four sections, in one step; `null` for any other path. Its result is always a path it leaves alone, so no redirect loop is possible | Routing (helper) |
-| `lib/views/ui/NotFoundView.tsx`, `SectionNotFound.tsx`, `RequestedPath.tsx` | The shared 404 look (title, reason, asked-for path, links to the main pages), the section version (own text, or "Invalid id" from the URL) and the path display (`usePathname`) | View |
+| `lib/views/ui/NotFoundView.tsx`, `SectionNotFound.tsx`, `RequestedPath.tsx` | The shared 404 look (the page band with the title; the empty state with the reason, the asked-for path, text links to the main sections and one button home), the section version (own text, or "“abc” isn't a … number, so this link can't be right." from the URL) and the path display (`usePathname`) | View |
+| `lib/views/ui/ServerErrorView.tsx` | The 500 page's look (BRAND.md voice): "We couldn't load this page.", "The problem is on our side, not with your link.", what to do next, one primary **Try again** and **Go to the home page**, and the error's reference (digest) to match the server log — never the error's details | View |
 | `lib/http/serverError.ts` | `internalError()` → 500 `{ "error": "internal error" }`, `serviceUnavailable()` → 503 `{ "error": "service unavailable", "reason": "The database is not reachable. Try again later." }` | View (shared response) |
 | `lib/http/notFound.ts` | `notFound(reason)`: the one JSON 404 of the API, `{ "error": "not found", "reason": "…" }`, used by the guard, the catch-all route and the API controllers | View (shared response) |
 | `app/api/[...path]/route.ts` | Catch-all route for every method: an API path no other route matches answers `notFound("No route matches METHOD /path")` (through the logger and the error handler, `withApiMiddleware`) | Route |
 | `lib/middleware/logger.ts`, `lib/middleware/chain.ts`, `lib/middleware/index.ts` | The API middleware line. `withLogger` writes one line per API request on the way out (`HH:MM:SS METHOD PATH STATUS DURATIONms`, Istanbul time, no query string, no body / headers / cookies). `writeLogLine` is the one place the line format lives (also used for pages, through `logPageRequest`). `chain(...)` puts middlewares in order in front of a route handler. `index.ts` builds the two lines every `app/api/**/route.ts` handler is wrapped in: `withApiMiddleware = chain(withLogger, withErrorHandler)` and `withExistingResource(resource) = chain(withLogger, withErrorHandler, withExists(resource))`. The logger never changes a response | Middleware (between the route and the controller) |
 | `lib/controllers/databaseErrors.ts` | Maps PostgreSQL error codes (e.g. `23505` unique violation, `23503` foreign key, `23514` check, `22003` out of range) to clear 400 messages: `clientErrorMessage` (used by the API's error handler) and `clientMessageFor` (the pages; it also logs any other error and the page shows a friendly message) | Controller (helper) |
-| `lib/models/user.ts` | The User Model: `User` type and async CRUD functions `createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser` in plain, parameterized SQL on the `users` table. `name`, `email`, `age`, `department` go to their columns, every other field to the `extra` jsonb column; users are returned flat, as before. No `Request` or `NextResponse` | Model |
-| `lib/models/jobPosting.ts` | The JobPosting Model: `JobPosting` type (`id`, `title`, `company`, `createdAt`, `updatedAt` — **no owner**), its **rules** in `validateJobPosting` (title required, trimmed, ≤ 200 characters; company optional, trimmed, ≤ 200; valid ids only), and async functions `createJobPosting(data)`, `getAllJobPostings`, `getJobPostingById`, `updateJobPosting`, `deleteJobPosting`. Returns result objects (`{ jobPosting }` or `{ error: "validation" \| "invalid-id" \| "not-found" }`), which `ApiJobPostingController` turns into status codes | Model |
-| `lib/models/application.ts` | The Application Model (also two read-only joins for the pages: `getApplicationsWithUsersByJobPostingId`, `getApplicationsWithJobPostingsByUserId`): `Application` type (`id`, `userId`, `jobPostingId`, `status`, `createdAt`, `updatedAt`), its **rules** in `validateApplication` / `validateStatus` (`userId` and `jobPostingId` required, valid ids only; `status` exactly `pending`, `accepted` or `rejected`, default `pending`; `id` / timestamps ignored), and async functions `createApplication`, `getAllApplications`, `getApplicationsByJobPostingId`, `getApplicationsByUserId`, `getApplicationById`, `updateApplicationStatus` (status only), `deleteApplication`. A missing user / posting and a second application to the same posting are caught by the **database** (foreign key `23503`, unique `23505`) and returned as `{ error: "user-not-found" \| "job-posting-not-found" \| "already-applied" }`, besides `"validation" \| "invalid-id" \| "not-found"`, which `ApiApplicationController` turns into status codes | Model |
-| `lib/models/announcement.ts` | The Announcement Model: `Announcement` type and async CRUD functions `createAnnouncement`, `getAllAnnouncements` (newest first), `getAnnouncementById`, `replaceAnnouncement` (keeps `id` and `createdAt`), `updateAnnouncement`, `deleteAnnouncement` in plain, parameterized SQL on the `announcements` table. Every change sets `updated_at = now()`; dates are returned as ISO strings. No `Request` or `NextResponse` | Model |
+| `lib/controllers/pageMessages.ts` | The page wording (BRAND.md voice) for the messages the Models and controllers return — e.g. `"name" is required and must be a non-empty string` → "The name can't be empty.", `User with id "21" not found` → "We couldn't find that graduate or student. It may have been deleted." `withPageMessages` wraps the page controllers' create / update / delete; the Models and the JSON API keep their exact messages | Controller (helper) |
+| `lib/models/user.ts` | The User Model: `User` type and async CRUD functions `createUser`, `getAllUsers`, `getUserById`, `replaceUser`, `updateUser`, `deleteUser` in plain, parameterized SQL on the `users` table. `name`, `email`, `age`, `department` go to their columns, every other field to the `extra` jsonb column; users are returned flat, as before. No `Request` or `NextResponse`. Read-only counts for the homepage: `countUsers()`, `countDepartments()` (different non-blank departments, surrounding spaces ignored), `getNewestUsers(limit)` and `countUsersByDepartment(limit)` (users per department, the largest first) | Model |
+| `lib/models/jobPosting.ts` | The JobPosting Model: `JobPosting` type (`id`, `title`, `company`, `createdAt`, `updatedAt` — **no owner**), its **rules** in `validateJobPosting` (title required, trimmed, ≤ 200 characters; company optional, trimmed, ≤ 200; valid ids only), and async functions `createJobPosting(data)`, `getAllJobPostings`, `getJobPostingById`, `updateJobPosting`, `deleteJobPosting`. Returns result objects (`{ jobPosting }` or `{ error: "validation" \| "invalid-id" \| "not-found" }`), which `ApiJobPostingController` turns into status codes. Read-only, for the homepage: `getLatestJobPostings(limit)` (newest first, `LIMIT $1`) and `countJobPostings()` | Model |
+| `lib/models/application.ts` | The Application Model (also two read-only joins for the pages: `getApplicationsWithUsersByJobPostingId`, `getApplicationsWithJobPostingsByUserId`): `Application` type (`id`, `userId`, `jobPostingId`, `status`, `createdAt`, `updatedAt`), its **rules** in `validateApplication` / `validateStatus` (`userId` and `jobPostingId` required, valid ids only; `status` exactly `pending`, `accepted` or `rejected`, default `pending`; `id` / timestamps ignored), and async functions `createApplication`, `getAllApplications`, `getApplicationsByJobPostingId`, `getApplicationsByUserId`, `getApplicationById`, `updateApplicationStatus` (status only), `deleteApplication`. A missing user / posting and a second application to the same posting are caught by the **database** (foreign key `23503`, unique `23505`) and returned as `{ error: "user-not-found" \| "job-posting-not-found" \| "already-applied" }`, besides `"validation" \| "invalid-id" \| "not-found"`, which `ApiApplicationController` turns into status codes. Read-only, for the homepage: `countApplications()` | Model |
+| `lib/models/announcement.ts` | The Announcement Model: `Announcement` type and async CRUD functions `createAnnouncement`, `getAllAnnouncements` (newest first), `getAnnouncementById`, `replaceAnnouncement` (keeps `id` and `createdAt`), `updateAnnouncement`, `deleteAnnouncement` in plain, parameterized SQL on the `announcements` table. Every change sets `updated_at = now()`; dates are returned as ISO strings. No `Request` or `NextResponse`. Read-only, for the homepage: `getLatestAnnouncements(limit)` (newest first, `LIMIT $1`) and `countAnnouncements()` | Model |
 | `lib/openapi.ts` | Hand-written OpenAPI 3 description of the `/api/*` routes, and the `/users` and `/announcements` pages and their Server Actions | Other (documentation) |
+| `BRAND.md` | The brand kit (IU Alumni): name and promise, colour roles mapped to the tokens in `app/globals.css`, type, shape, voice ("we say" / "we never say") and how the logo is used. The source of truth for colors, fonts and voice | Other (documentation) |
 | `AGENTS.md`, `CLAUDE.md` | Instructions for AI coding assistants | Other |
 | `package.json`, `package-lock.json` | Dependencies and npm scripts | Config |
 | `Dockerfile`, `docker-compose.yml`, `.dockerignore` | The production image (built with `npm ci` + `npm run build`, runs `npm start` as the `node` user, which owns `.next/cache` and `logs/`) and the four services `db`, `migrate`, `app` (with `./logs` mounted at `/app/logs`) and `seed` ("seed" profile) | Config |
@@ -664,13 +715,13 @@ curl -X POST http://localhost:3000/api/jobs -H "Content-Type: application/json" 
 
 ### Request flow example: creating a user from the form on `/users`
 
-1. **View** — the browser shows `UserCreateForm` (rendered by `app/users/page.tsx`). The user types a name, email and age and clicks **Add user**.
-2. **Server Action** — the browser sends `POST /users`, and Next.js runs `createUserAction` in `app/users/actions.ts` with the form data. The action only reads the three fields and calls `UserController.create({ name, email, age })`.
+1. **View** — the browser shows `UserCreateForm` (rendered by `app/users/new/page.tsx`). The user types a name, email and age and clicks **Add graduate**.
+2. **Server Action** — the browser sends `POST /users/new`, and Next.js runs `createUserAction` in `app/users/actions.ts` with the form data. The action only reads the three fields and calls `UserController.create({ name, email, age })`.
 3. **Controller** — `await UserController.create(...)` checks that `name` isn't missing or blank (and that `age`, if filled in, is a whole number):
    - invalid → returns `{ error: "\"name\" is required and must be a non-empty string" }`, the action passes it back, and the form shows it in red (keeping what was typed)
    - valid → calls the Model
 4. **Model** — `createUser(...)` in `lib/models/user.ts` inserts the row with `INSERT … RETURNING` — the same `users` table used by `/api/users`.
-5. **View** — the action calls `revalidatePath("/users")` and returns `User "…" created with id …`. The form shows the message and clears, and the page re-renders: `UserController.getAll()` now includes the new user, and `UserListView` shows the new row — no full page reload. The user is also returned by `GET /api/users`.
+5. **View** — the action calls `revalidatePath("/users")` and redirects to the new user's page, `/users/{id}`. `/users` now lists the new user too (`UserController.getAll()`), and so does `GET /api/users`.
 
 ### Current limitations
 
@@ -868,16 +919,18 @@ Next.js has its own "middleware" file — in this Next.js version it is called *
 
 These are for the **pages** only: the JSON API keeps its own 404 `{ "error": "not found", "reason": … }` and is never redirected.
 
-**One 404 page.** Every page 404 has the same look, built once in `lib/views/ui/NotFoundView.tsx` with the shared UI pieces: a title, a reason, the path that was asked for (shown with `usePathname`, as the Next.js docs suggest, because a not-found page gets no props) and links to **Home, Users, Jobs, Applications and Announcements**. The HTTP status is always the real **404**.
+**One 404 page.** Every page 404 has the same look, built once in `lib/views/ui/NotFoundView.tsx` with the shared UI pieces: the green page band with the title, then the shared empty state over it — the illustration, the reason, the path that was asked for (shown with `usePathname`, as the Next.js docs suggest, because a not-found page gets no props), quiet text links to **Graduates & students, Jobs, Applications and Announcements**, and one button, **Go to the home page**. The HTTP status is always the real **404**.
 
 | URL | Title | Reason |
 |---|---|---|
-| `/hello123`, `/applications/x` (no page matches) | Page not found | There is no page at this address. (`app/not-found.tsx`) |
-| `/jobs/abc`, `/jobs/1.5`, `/users/0`, `/jobs/abc/edit` (invalid id) | Page not found | Invalid id: “abc” is not a valid job posting id. |
-| `/jobs/99999` (no such row) | Job posting not found | There is no job posting with this id. |
-| `/users/99999`, `/announcements/99999` | User not found / Announcement not found | There is no user / announcement with this id. |
+| `/hello123`, `/applications/x` (no page matches) | We couldn't find that page. | The address may be mistyped, or the page may have moved. (`app/not-found.tsx`) |
+| `/jobs/abc`, `/jobs/1.5`, `/users/0`, `/jobs/abc/edit` (invalid id) | We couldn't find that page. | “abc” isn't a job posting number, so this link can't be right. (users: "profile number") |
+| `/jobs/99999` (no such row) | We couldn't find that job posting. | It may have been deleted, or the link may be wrong. |
+| `/users/99999`, `/announcements/99999` | We couldn't find that graduate or student. / We couldn't find that announcement. | It may have been deleted, or the link may be wrong. |
 
-The section pages (`app/jobs/[id]/not-found.tsx`, `app/users/[id]/not-found.tsx`, `app/announcements/[id]/not-found.tsx`) keep their texts and only pass them to `SectionNotFound`, which shows "Invalid id" when the id in the URL isn't a whole number above 0. Nothing crashes or answers 500: the pages already call `notFound()` for both cases.
+The section pages (`app/jobs/[id]/not-found.tsx`, `app/users/[id]/not-found.tsx`, `app/announcements/[id]/not-found.tsx`) keep their texts and only pass them to `SectionNotFound`, which shows the invalid-id text when the id in the URL isn't a whole number above 0. Nothing crashes or answers 500: the pages already call `notFound()` for both cases.
+
+**The 500 page.** When a page fails on the server (e.g. the database can't be reached while `/jobs` loads), browsers get a designed page with HTTP **500**: `app/error.tsx` (inside the normal layout) or, if the root layout itself fails, `app/global-error.tsx`, both in `lib/views/ui/ServerErrorView.tsx` — "We couldn't load this page. The problem is on our side, not with your link.", what to do next, one primary **Try again** (re-renders the page) and **Go to the home page**, plus the error's reference to match the server log. The error's message and stack are never shown. The JSON API is not affected: it keeps its `{ "error": "internal error" }` 500 and `{ "error": "service unavailable", … }` 503 from the error handler middleware.
 
 **Redirects (308 Permanent Redirect).** All in one place, `proxy.ts`, using the rules in `lib/routing/pageRedirect.ts`; the query string is kept:
 
@@ -898,21 +951,34 @@ The section pages (`app/jobs/[id]/not-found.tsx`, `app/users/[id]/not-found.tsx`
 
 ## 🎨 Design and theme
 
+**[BRAND.md](BRAND.md) is the source of truth for colors, fonts and voice** (the IU Alumni name and promise, colour roles, type, shape, voice and the logo); `app/globals.css` must match it, and every page pulls from it. **[DESIGN.md](DESIGN.md) decides how pages are built** — layout and spacing, the table, the empty state, forms and the shared components — taking one part each from three references ([docs/references/](docs/references/README.md)): shadcn/ui, Stripe and Linear.
+
+### Design: before and after
+
+| Before | After |
+|---|---|
+| ![The homepage a vague prompt produced](docs/design/before.png) | ![The IU Alumni homepage](docs/design/after.png) |
+| What a vague prompt ("Design my homepage") produced. | The IU Alumni design, built from BRAND.md and DESIGN.md. |
+
+How we got there: first a brand kit, [BRAND.md](BRAND.md), fixed the name, promise, colours, type and voice once. Then [DESIGN.md](DESIGN.md) took one part from each of three references (shadcn/ui for layout and components, Stripe for the table, Linear for the empty state), and every page was redesigned one at a time against those two files. A final merge pass made it one system: one name, one wording, one set of shared components, and at most one primary button per view.
+
 The whole app shares one calm, clean design based on the **İstanbul Üniversitesi** colors, read from the pixels of the logo in `public/logo.png`:
 
 | Token | Value | Used for |
 |---|---|---|
 | `--color-primary` | `#00733e` (logo green) | Buttons, links, the focus ring, the active navigation item. White text on it has a contrast of about 6:1 |
 | `--color-primary-hover` | `#005c32` | Hover / pressed green |
-| `--color-accent` | `#fdd525` (logo yellow) | Only small highlights: the thin line at the top of the header and the "pending" badge |
+| `--color-accent` | `#fdd525` (logo yellow) | Only small highlights: the thin lines at the top of the header and the footer and above the band titles, the "pending" badge, the "New" chip, a card's top strip on hover |
 | `--color-canvas`, `--color-surface`, `--color-subtle`, `--color-border` | light grays and white | Page background, cards and tables, table headers, borders |
 | `--color-ink`, `--color-muted` | near-black and gray | Main and secondary text (both above 4.5:1 on white) |
 | `--color-danger` | `#b42318` | Delete / Remove buttons, error messages, the "rejected" badge |
-| `--radius-card`, `--radius-control`, `--shadow-card` | `1rem`, `0.625rem`, a very light shadow | Rounded cards and controls |
+| `--radius-card`, `--radius-control`, `--shadow-card`, `--shadow-card-hover` | `1rem`, `0.625rem`, a light soft shadow, a deeper one on hover | Rounded cards and controls; a clickable card under the pointer |
+| `--color-action-tint` | mixed from `--color-action` and the page background | The light green band behind one section (homepage) |
+| `--color-paper`, `--color-action` | aliases of `--color-canvas`, `--color-primary` | The BRAND.md role names, for `var(--…)` |
 
-**Shared pieces.** Pages and views never repeat long class lists: they use the components in `lib/views/ui/` — `Button` / `ButtonLink` (primary, secondary, danger), `Card`, `Badge` and `StatusBadge` (pending = yellow, accepted = green, rejected = red), `PageHeader`, `Table`, `Field` / `Input` / `Select` / `FormMessage`, `EmptyState` — and the header (`SiteHeader`, with the logo through `next/image` and the navigation, which highlights the current page and wraps on a phone).
+**Shared pieces.** Pages and views never repeat long class lists: they use the components in `lib/views/ui/` (see the files table and DESIGN.md §6 and §9) — the green `PageBand` at the top of every page (the homepage has the larger `Hero`), `Panel`s and `DetailHeader` cards, `LinkCard` grids for browsing, the shared `Table` for management lists, `EmptyState` with its illustration, `Field` / `Input` / `Select` / `FormMessage`, `Button` / `ButtonLink`, `Chip`, `Avatar` and `StatusBadge` (Pending = yellow, Accepted = green, Rejected = red), and the header and footer (`SiteHeader`, `SiteFooter`).
 
-**Accessibility.** Every input has a label, buttons are real `<button>`s, error messages use `role="alert"`, the current navigation link has `aria-current="page"`, every link and button gets a visible green focus ring from the keyboard, and tables scroll inside their card on a narrow screen, so no page scrolls sideways.
+**Accessibility.** Every input has a label, buttons are real `<button>`s, error messages use `role="alert"`, the current navigation link has `aria-current="page"`, every link and button gets a visible focus ring from the keyboard (green, and white on the green bands), and tables scroll inside their card on a narrow screen, so no page scrolls sideways.
 
 ### How to change the theme
 
@@ -1053,7 +1119,7 @@ This test checks what happens to the data when the app's container is removed an
    ```bash
    curl -X POST http://localhost:3000/api/users -F name=Ayman
    ```
-   or use the "Add a user" form at [http://localhost:3000/users](http://localhost:3000/users).
+   or use the "Add a graduate" form at [http://localhost:3000/users/new](http://localhost:3000/users/new).
 3. Check that the record is there:
    ```bash
    curl http://localhost:3000/api/users
@@ -1238,11 +1304,12 @@ The same users can also be browsed as HTML pages, documented in Swagger under **
 
 | Method | Route | Description |
 |---|---|---|
-| `GET` | `/users` | Page with the "Add a user" form and the list of all users |
-| `POST` | `/users` | Sent by the "Add a user" form or a row's Delete button (Next.js Server Actions) — browser only |
-| `GET` | `/users/{id}` | Page showing one user, or a "User not found" page (404) |
+| `GET` | `/users` | Page with all users as person cards and an "Add a graduate" button (Edit and Delete are on each person's page) |
+| `GET` | `/users/new` | The "Add a graduate" form |
+| `POST` | `/users/new` | Sent by that form (Server Action); redirects to the new user's page — browser only |
+| `GET` | `/users/{id}` | Page showing one user, or a "We couldn't find that graduate or student." page (404) |
 | `POST` | `/users/{id}` | Sent by the Delete button on that page (Server Action) — browser only |
-| `GET` | `/users/{id}/edit` | Edit form, pre-filled, or a "User not found" page (404) |
+| `GET` | `/users/{id}/edit` | Edit form, pre-filled, or a "We couldn't find that graduate or student." page (404) |
 | `POST` | `/users/{id}/edit` | Sent by the edit form (Server Action) — browser only |
 
 The `POST` rows are browser form submissions handled by Server Actions, not REST endpoints — from Postman or scripts, use the `/api/users` routes above.
@@ -1251,11 +1318,12 @@ Announcements can also be managed as HTML pages, documented in Swagger under **A
 
 | Method | Route | Description |
 |---|---|---|
-| `GET` | `/announcements` | Page with the "Add an announcement" form and the list of all announcements, newest first |
-| `POST` | `/announcements` | Sent by the "Add an announcement" form or a row's Delete button (Server Actions) — browser only |
-| `GET` | `/announcements/{id}` | Page showing one announcement, or an "Announcement not found" page (404) |
+| `GET` | `/announcements` | Page with all announcements as cards, newest first, and a "Post an announcement" button (Edit and Delete are on each announcement's page) |
+| `GET` | `/announcements/new` | The "Post an announcement" form |
+| `POST` | `/announcements/new` | Sent by that form (Server Action); redirects to the new announcement's page — browser only |
+| `GET` | `/announcements/{id}` | Page showing one announcement, or a "We couldn't find that announcement." page (404) |
 | `POST` | `/announcements/{id}` | Sent by the Delete button on that page (Server Action) — browser only |
-| `GET` | `/announcements/{id}/edit` | Edit form, pre-filled, or an "Announcement not found" page (404) |
+| `GET` | `/announcements/{id}/edit` | Edit form, pre-filled, or a "We couldn't find that announcement." page (404) |
 | `POST` | `/announcements/{id}/edit` | Sent by the edit form (Server Action) — browser only |
 
 As with users, the `POST` rows are Server Actions, not REST endpoints — from Postman or scripts, use the `/api/announcements` routes.
@@ -1264,15 +1332,14 @@ Job postings and their applications can also be managed as HTML pages (not in Sw
 
 | Method | Route | Description |
 |---|---|---|
-| `GET` | `/jobs` | Page with the list of all job postings, newest first, and a "New job posting" button |
-| `POST` | `/jobs` | Sent by a row's Delete button (Server Action) — browser only |
-| `GET` | `/jobs/new` | The "New job posting" form |
+| `GET` | `/jobs` | Page with all job postings as job cards, newest first (with their number of applications), and a "Post a job" button (Edit and Delete are on each posting's page) |
+| `GET` | `/jobs/new` | The "Post a job" form |
 | `POST` | `/jobs/new` | Sent by that form (Server Action) — browser only |
-| `GET` | `/jobs/{id}` | Page showing one posting and its applications (applicant names), or a "Job posting not found" page (404) |
+| `GET` | `/jobs/{id}` | Page showing one posting and its applications (applicant names), or a "We couldn't find that job posting." page (404) |
 | `POST` | `/jobs/{id}` | Sent by the Delete button and the Applications forms (add, change status, remove) (Server Actions) — browser only |
-| `GET` | `/jobs/{id}/edit` | Edit form, pre-filled, or a "Job posting not found" page (404) |
+| `GET` | `/jobs/{id}/edit` | Edit form, pre-filled, or a "We couldn't find that job posting." page (404) |
 | `POST` | `/jobs/{id}/edit` | Sent by the edit form or its Delete button (Server Actions) — browser only |
-| `GET` | `/applications` | Page listing every application (applicant, job posting, status, date) |
+| `GET` | `/applications` | Page listing every application (applicant, job posting, status, date) with a "Browse job postings" button |
 | `POST` | `/applications` | Sent by a row's Update or Remove button (Server Actions) — browser only |
 
 The `/users/{id}` page also lists the job postings that user applied to (read-only). From Postman or scripts, use `/api/jobs` and the applications routes.

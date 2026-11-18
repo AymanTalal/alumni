@@ -10,8 +10,12 @@
  * The two brand colors are read from the İstanbul Üniversitesi logo (public/logo.png):
  * the deep green (#00733e) and the golden yellow (#fdd525). Green is the main accent
  * (buttons, links, focus rings); yellow is only a small highlight.
+ *
+ * The values match BRAND.md (the brand kit), which is the source of truth. "static" makes Tailwind
+ * output EVERY token below as a CSS variable on :root, even one no class uses yet, so a page can
+ * always write var(--color-…) (see DESIGN.md, Tokens).
  */
-@theme {
+@theme static {
   /* Brand: logo green */
   --color-primary: #00733e; /* buttons, links; white text on it has a 6:1 contrast */
   --color-primary-hover: #005c32; /* darker green for hover / pressed */
@@ -37,10 +41,22 @@
   --color-danger-hover: #912018;
   --color-danger-soft: #fef3f2;
 
+  /* BRAND.md role names. ink, accent and danger already use them (--color-ink, --color-accent,
+     --color-danger); these two are aliases with the same values, never a second hex:
+       paper  → the page background     action → the green for buttons, links and focus */
+  --color-paper: var(--color-canvas);
+  --color-action: var(--color-primary);
+  /* A very light tint of the action green, mixed from the action color and the page background
+     (never a second hex), for a background band that breaks up the gray page (DESIGN.md §9) */
+  --color-action-tint: color-mix(in srgb, var(--color-action) 7%, var(--color-canvas));
+
   /* Shape and depth */
   --radius-card: 1rem;
   --radius-control: 0.625rem;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  /* A light, soft shadow on cards, and a slightly deeper one when a clickable card is hovered
+     (DESIGN.md, Richer layer v2) */
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 2px 8px rgb(16 24 40 / 0.05);
+  --shadow-card-hover: 0 2px 4px rgb(16 24 40 / 0.05), 0 10px 24px rgb(16 24 40 / 0.09);
 }
 
 /* Fonts come from next/font in app/layout.tsx (Geist), so they're set with "inline" */
@@ -60,5 +76,11 @@
   :focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+  }
+
+  /* On the green bands (the hero, the page band, the footer) the green ring would vanish, so it is
+     white there (DESIGN.md §9) */
+  .bg-action :focus-visible {
+    outline-color: var(--color-on-primary);
   }
 }

@@ -31,7 +31,7 @@ export default function DeleteJobPostingButton({ jobPostingId, title, action, si
       onSubmit={(event) => {
         if (
           !window.confirm(
-            `Delete job posting "${title}"? Its applications are deleted too. This cannot be undone.`,
+            `Delete job posting "${title}"? Its applications are deleted too. This can't be undone.`,
           )
         ) {
           event.preventDefault();

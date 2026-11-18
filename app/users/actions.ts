@@ -6,7 +6,7 @@ import * as UserController from "@/lib/controllers/UserController";
 import type { DeleteUserState } from "@/lib/views/users/DeleteUserButton";
 import type { UserFormState } from "@/lib/views/users/UserCreateForm";
 
-// Server Actions for the user pages: create, update and delete.
+// Server Actions for the user pages: create (the form on /users/new), update and delete.
 // When one of the forms is submitted, the browser sends a POST to the page it's on
 // and Next.js runs the matching function here on the server.
 // No data logic in this file: each action reads the form, calls UserController
@@ -35,9 +35,10 @@ export async function createUserAction(
     return { error: result.error, values };
   }
 
-  // Success: refresh /users so the new user appears in the list
+  // Success: refresh /users so the new user appears in the list, then go to the new user's page
+  // (the form is on its own page, /users/new, like /jobs/new)
   revalidatePath("/users");
-  return { message: `User "${result.user.name}" created with id ${result.user.id}.` };
+  redirect(`/users/${result.user.id}`);
 }
 
 // Reads one text field as typed ("" if it was left empty).

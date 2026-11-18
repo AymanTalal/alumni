@@ -13,7 +13,8 @@ const CLIENT_ERRORS: Record<string, string> = {
   "22003": "A number is out of range", // numeric_value_out_of_range
 };
 
-export const PAGE_ERROR = "Something went wrong while saving. Please try again.";
+// What a page shows when saving failed for a reason the person can't fix (BRAND.md voice)
+export const PAGE_ERROR = "We couldn't save your changes. Please try again.";
 
 // Returns a client-facing message for errors caused by the sent data, or null for anything else.
 // Logs nothing: the caller decides what to do with other errors.

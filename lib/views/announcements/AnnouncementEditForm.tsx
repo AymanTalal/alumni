@@ -3,13 +3,15 @@
 import { useActionState } from "react";
 import type { Announcement } from "@/lib/models/announcement";
 import { Button, ButtonLink } from "../ui/Button";
-import Card from "../ui/Card";
 import { Field, FormMessage, Input, Textarea } from "../ui/Field";
 import type { AnnouncementFormState } from "./AnnouncementCreateForm";
 
-// View: the "Edit announcement" form. Same fields as the create form, pre-filled with the
-// announcement's current values. Markup and styling only, no data logic: submitting it runs the
-// update Server Action passed in as `action`, and the form shows the validation error it returns.
+// (No card of its own: the page puts the form in one Panel — DESIGN.md §9.)
+// View: the edit form on /announcements/{id}/edit (DESIGN.md, Forms) — the same fields, hints and
+// look as the "Post an announcement" form on /announcements/new, pre-filled with the current
+// values. Markup and styling only, no data logic: submitting it runs the update Server Action
+// passed in as `action`, and the form shows the validation error it returns, keeping what was
+// typed; on success the action goes back to the announcement's page.
 // A Client Component only because React's useActionState runs in the browser.
 
 type Props = {
@@ -30,17 +32,15 @@ export default function AnnouncementEditForm({ announcement, action }: Props) {
     state.values ? state.values[field] : (announcement[field] ?? "");
 
   return (
-    <Card>
+    <>
       <form action={formAction} className="flex flex-col gap-5">
         <Field label="Title" required>
           <Input name="title" defaultValue={value("title")} />
         </Field>
-
         <Field label="Content" required>
           <Textarea name="content" rows={6} defaultValue={value("content")} />
         </Field>
-
-        <Field label="Author">
+        <Field label="Author" hint="Optional. For example “Alumni Office”.">
           <Input name="author" defaultValue={value("author")} />
         </Field>
 
@@ -55,6 +55,6 @@ export default function AnnouncementEditForm({ announcement, action }: Props) {
           </ButtonLink>
         </div>
       </form>
-    </Card>
+    </>
   );
 }

@@ -4,11 +4,16 @@ import type { ComponentProps } from "react";
 // Shared UI: buttons. Markup and styling only. Every button and button-like link in the app uses
 // these, so their look is defined once. Colors, radius and focus ring come from the theme tokens
 // in app/globals.css.
-//   primary   → green, for the main action of a page or form
+// DESIGN.md: ONE primary button per view; everything else is secondary or danger, and table rows
+// never hold a primary button.
+//   primary   → green (action), for the one main action of a page or form
 //   secondary → white with a border, for other actions (Edit, Cancel, View)
 //   danger    → red text and border, for Delete / Remove
+// On the green hero band (DESIGN.md, Richer layer v2) the green button would disappear, so:
+//   onAction          → the band's ONE primary button: white with green text (6.0:1)
+//   onActionSecondary → the band's secondary button: a white outline, white text
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "onAction" | "onActionSecondary";
 export type ButtonSize = "md" | "sm";
 
 const BASE =
@@ -19,6 +24,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-primary text-on-primary hover:bg-primary-hover",
   secondary: "border border-border-strong bg-surface text-ink hover:bg-subtle",
   danger: "border border-danger/30 bg-surface text-danger hover:bg-danger-soft hover:border-danger",
+  onAction: "bg-on-primary text-primary shadow-card hover:bg-primary-soft",
+  onActionSecondary: "border border-on-primary/60 text-on-primary hover:bg-on-primary/10",
 };
 
 const SIZES: Record<ButtonSize, string> = {

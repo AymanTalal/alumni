@@ -5,5 +5,10 @@ import NotFoundView from "@/lib/views/ui/NotFoundView";
 // not redirected to the home page: a 404 tells people and search engines the address doesn't exist.
 // The section pages (e.g. app/jobs/[id]/not-found.tsx) use the same look with their own text.
 export default function NotFound() {
-  return <NotFoundView title="Page not found" reason="There is no page at this address." />;
+  return (
+    <NotFoundView
+      title="We couldn't find that page."
+      reason="The address may be mistyped, or the page may have moved."
+    />
+  );
 }

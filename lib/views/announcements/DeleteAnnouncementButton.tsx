@@ -34,7 +34,7 @@ export default function DeleteAnnouncementButton({
     <form
       action={formAction}
       onSubmit={(event) => {
-        if (!window.confirm(`Delete announcement "${title}"? This cannot be undone.`)) {
+        if (!window.confirm(`Delete announcement "${title}"? This can't be undone.`)) {
           event.preventDefault();
         }
       }}

@@ -3,12 +3,12 @@
 import { useActionState } from "react";
 import type { JobPosting } from "@/lib/models/jobPosting";
 import { Button, ButtonLink } from "../ui/Button";
-import Card from "../ui/Card";
 import { Field, FormMessage, Input } from "../ui/Field";
 import type { JobPostingFormState } from "./JobPostingCreateForm";
 
-// View: the "Edit job posting" form. Same fields as the create form, pre-filled with the
-// posting's current values. Markup and styling only, no data logic: submitting it runs the
+// (No card of its own: the page puts the form in one Panel — DESIGN.md §9.)
+// View: the "Edit job posting" form (DESIGN.md, Forms) — the same fields, hints and look as the
+// "Post a job" form on /jobs/new, pre-filled with the posting's current values. Markup and styling only, no data logic: submitting it runs the
 // update Server Action passed in as `action`, and the form shows the validation error it returns.
 // A Client Component only because React's useActionState runs in the browser.
 
@@ -30,13 +30,13 @@ export default function JobPostingEditForm({ jobPosting, action }: Props) {
     state.values ? state.values[field] : (jobPosting[field] ?? "");
 
   return (
-    <Card>
+    <>
       <form action={formAction} className="flex flex-col gap-5">
-        <Field label="Title" required>
+        <Field label="Title" required hint="For example “Junior Data Analyst”. At most 200 characters.">
           <Input name="title" defaultValue={value("title")} />
         </Field>
 
-        <Field label="Company" hint="Leave empty to remove the company.">
+        <Field label="Company" hint="Optional. Leave it empty to remove the company.">
           <Input name="company" defaultValue={value("company")} />
         </Field>
 
@@ -51,6 +51,6 @@ export default function JobPostingEditForm({ jobPosting, action }: Props) {
           </ButtonLink>
         </div>
       </form>
-    </Card>
+    </>
   );
 }

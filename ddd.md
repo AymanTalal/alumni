@@ -1,6 +1,6 @@
 # 🗂️ Data Design Documentation
 
-> Part of the **Alumni Tracking System** — back to the [README](README.md).
+> Part of **IU Alumni** — back to the [README](README.md).
 
 ---
 
@@ -475,6 +475,8 @@ The trade-off is that application history disappears with the user or the postin
 
 **Naming.** Columns use `snake_case` (the usual PostgreSQL style), while the app uses `camelCase` (`createdAt`). The Models translate between them in small mapping functions (`toUser`, `toAnnouncement`, `toJobPosting`, `toApplication`), so the API's JSON didn't have to change.
 
+**Read-only functions for the homepage** (no rules, no change to any table): `countUsers()`, `countDepartments()` (`count(DISTINCT nullif(btrim(department), ''))` — blank departments don't count, surrounding spaces are ignored, different spelling or capitals count separately), `countJobPostings()`, `getLatestJobPostings(limit)`, `countApplications()`, `countAnnouncements()` and `getLatestAnnouncements(limit)` (newest first, `LIMIT $1`; a limit outside 1–50 falls back to the default), and on `users`: `getNewestUsers(limit)` (newest first by `created_at`, then `id`) and `countUsersByDepartment(limit)` (`GROUP BY btrim(department)`, blank departments left out, the largest first, then by name — the same counting rule as `countDepartments()`). The homepage shows **People** (all users), not alumni and current students: the `users` table has no field that tells them apart (no `is_alumni` or `graduation_year`; the only dynamic `extra` key in the data is `city`) — that would need a new column, which is an open question.
+
 **Queries.** Every query is plain SQL with `$1, $2, …` parameters — never built by string concatenation, so input like `x'); DROP TABLE users; --` is stored as plain text. Creates, updates and deletes use `… RETURNING`, so one query both changes and returns the row. A partial update (`PATCH`) uses one fixed `UPDATE` with a "was this field sent?" flag per column, and merges extra fields with `extra || $n::jsonb`.
 
 ---
@@ -610,7 +612,7 @@ Between migration 004 and the code update, the job-posting code still named the 
 
 ## ❓ Decisions and open questions
 
-The job postings design added questions 11–15, the JobPosting Model 16–17, and the applications design 18–24. **The many-to-many change** (no owner column) **removes questions 11, 14 and 19**, which only made sense with an owner: 11 (what happens to a user's postings when the user is deleted), 14 (how a posting's user is chosen) and 19 (may a user apply to their own posting). It decides question 18 and adds questions 25–29. **The Week 7 job posting design** (planned) updates questions 13, 15, 16 and 22 and adds questions 30–37.
+The job postings design added questions 11–15, the JobPosting Model 16–17, and the applications design 18–24. **The many-to-many change** (no owner column) **removes questions 11, 14 and 19**, which only made sense with an owner: 11 (what happens to a user's postings when the user is deleted), 14 (how a posting's user is chosen) and 19 (may a user apply to their own posting). It decides question 18 and adds questions 25–29. **The Week 7 job posting design** (planned) updates questions 13, 15, 16 and 22 and adds questions 30–37. The homepage numbers (Week 9) add question 38.
 
 | # | Question | Status |
 |---|---|---|
@@ -648,3 +650,4 @@ The job postings design added questions 11–15, the JobPosting Model 16–17, a
 | 35 | **The new 400 shape** `{ "error": "validation failed", "fields": { … } }` only applies to job postings; users, announcements and applications keep `{ "error": "…" }`. Should the others move to the same shape later? | ✅ **Decided (confirmed): yes — it is the target shape for ALL APIs**, applied to every API through the **validation middleware** in a later Week 7 task. Until then, the other APIs keep `{ "error": "<message>" }`. Planned — not implemented yet |
 | 36 | **No duplicate `title` + `company` + `city`?** Considered and **left out for now**: two real postings can share all three (e.g. several places for the same internship), so a unique rule would block valid data. | **Decided: left out for now** |
 | 37 | **Closing a posting:** what happens to its existing applications (e.g. `pending` ones) — unchanged, as in this design, or rejected automatically? Can a closed posting be reopened (this design: yes, `status: open`)? | **Open** |
+| 38 | **Alumni vs. current students:** the homepage would like to count graduates and current students separately, but `users` has no field for it. Add one (e.g. `graduation_year` or an `is_alumni` flag) with a new migration, or keep counting "people"? | **Open** — until it is decided, the homepage shows **People** (all users) and no numbers are made up |

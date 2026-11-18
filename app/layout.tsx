@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import SiteFooter from "@/lib/views/ui/SiteFooter";
 import SiteHeader from "@/lib/views/ui/SiteHeader";
 import "./globals.css";
 
@@ -13,9 +14,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// The name and promise come from BRAND.md. A page can set its own title (e.g. "Job postings"),
+// which the template turns into "Job postings · IU Alumni"; pages without one show "IU Alumni".
 export const metadata: Metadata = {
-  title: "Alumni Tracking System",
-  description: "Keeping Istanbul University connected with its graduates.",
+  title: { default: "IU Alumni", template: "%s · IU Alumni" },
+  description:
+    "Every IU graduate, one step away. The alumni platform of Istanbul University for its graduates, students and staff.",
+  applicationName: "IU Alumni",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -28,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <SiteHeader />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

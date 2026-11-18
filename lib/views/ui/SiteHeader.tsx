@@ -21,7 +21,7 @@ export default function SiteHeader() {
             loading="eager"
           />
           <span className="leading-tight">
-            <span className="block font-semibold text-ink">Alumni Tracking System</span>
+            <span className="block font-semibold text-ink">IU Alumni</span>
             <span className="block text-xs text-muted">İstanbul Üniversitesi</span>
           </span>
         </Link>

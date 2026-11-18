@@ -6,6 +6,7 @@
 import * as UserModel from "@/lib/models/user";
 import type { PartialUserData, User, UserData } from "@/lib/models/user";
 import { clientMessageFor, PAGE_ERROR } from "./databaseErrors";
+import { withPageMessages } from "./pageMessages";
 
 export type UserResult = { user: User } | { error: string };
 export type UsersResult = { users: User[] };
@@ -57,7 +58,7 @@ async function safely<T>(action: () => Promise<T>): Promise<T | { error: string 
 
 // Creates a user. Returns { user } on success,
 // or { error } if "name" is missing or blank, "age" isn't a whole number, or saving failed.
-export async function create(data: Partial<UserData>): Promise<UserResult> {
+async function createForModel(data: Partial<UserData>): Promise<UserResult> {
   const error = validateName(data, true) ?? validateAge(data);
   if (error) return { error };
 
@@ -77,7 +78,7 @@ export async function getById(id: number | string): Promise<UserResult> {
 
 // Changes only the given fields. Returns { user } on success, or { error } if the user doesn't
 // exist, "name" is given but blank, "age" isn't a whole number, or saving failed.
-export async function update(id: number | string, partialData: PartialUserData): Promise<UserResult> {
+async function updateForModel(id: number | string, partialData: PartialUserData): Promise<UserResult> {
   const error = validateName(partialData, false) ?? validateAge(partialData);
   if (error) return { error };
 
@@ -97,4 +98,9 @@ async function remove(id: number | string): Promise<DeleteResult> {
 
 // "delete" is a reserved word, so the function is named remove and exported as delete:
 // callers use UserController.delete(id).
-export { remove as delete };
+// The page wording (BRAND.md voice) for the messages people see: the Models and the JSON API keep
+// their own exact messages (lib/controllers/pageMessages.ts).
+export const create = withPageMessages(createForModel);
+export const update = withPageMessages(updateForModel);
+const removeForPage = withPageMessages(remove);
+export { removeForPage as delete };

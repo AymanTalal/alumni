@@ -1,17 +1,25 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import * as ApplicationController from "@/lib/controllers/ApplicationController";
 import * as UserController from "@/lib/controllers/UserController";
 import UserApplicationsView from "@/lib/views/applications/UserApplicationsView";
+import PageBand from "@/lib/views/ui/PageBand";
 import PageContainer from "@/lib/views/ui/PageContainer";
 import UserDetailView from "@/lib/views/users/UserDetailView";
 import { deleteUserAction } from "../actions";
 
 // Route: "/users/:id"  (file: app/users/[id]/page.tsx)
-// GET → Page → UserController.getById → Model, rendered by UserDetailView.
-// The Delete button runs deleteUserAction (../actions.ts) → UserController.delete.
+// GET → Page → UserController.getById → Model: the page band, then UserDetailView (the profile
+// header card over the band, DESIGN.md §9). The Delete button runs deleteUserAction (../actions.ts) → UserController.delete.
 // Below it, the read-only Applications section: ApplicationController.getAllForUser (applications with
 // their job postings), rendered by UserApplicationsView.
+
+// The browser tab shows the user's name ("Ayşe Yılmaz · IU Alumni")
+export async function generateMetadata({ params }: PageProps<"/users/[id]">): Promise<Metadata> {
+  const result = await UserController.getById((await params).id);
+  return "error" in result ? {} : { title: result.user.name };
+}
 
 export default async function UserPage({ params }: PageProps<"/users/[id]">) {
   // Render on every request, so the page always reflects the current data
@@ -28,9 +36,12 @@ export default async function UserPage({ params }: PageProps<"/users/[id]">) {
   if ("error" in applications) notFound();
 
   return (
-    <PageContainer>
+    <PageContainer
+      overlap
+      band={<PageBand overlap back={{ href: "/users", label: "All graduates & students" }} eyebrow="Graduate profile" />}
+    >
       <UserDetailView user={result.user} deleteAction={deleteUserAction} />
-      <UserApplicationsView applications={applications.applications} />
+      <UserApplicationsView userName={result.user.name} applications={applications.applications} />
     </PageContainer>
   );
 }

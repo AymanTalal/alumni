@@ -1,64 +1,33 @@
-import Link from "next/link";
 import type { JobPosting } from "@/lib/models/jobPosting";
-import { formatDate } from "../announcements/formatDate";
-import { ButtonLink } from "../ui/Button";
-import { cardClasses } from "../ui/Card";
 import EmptyState from "../ui/EmptyState";
-import DeleteJobPostingButton, { type DeleteJobPostingState } from "./DeleteJobPostingButton";
+import JobCard from "./JobCard";
 
-// View: renders the job postings as job-listing cards (title, company, date), with
-// View / Edit / Delete for each. Markup and styling only, no data logic: the page gets
-// the postings from JobPostingController and passes them in, with the delete Server Action.
+// View: the job postings on /jobs as a grid of job cards (DESIGN.md §9, browsing pages) — the same
+// cards as the homepage: company initial, title, company, posted date, applications count; the
+// newest (the list is newest first) has the yellow top strip and a "New" chip. Each card links to
+// the posting's page, where Edit, Delete and the applicants are. Markup only: the page gets the
+// postings and each posting's application count and passes them in.
+// An empty list shows the empty state (illustration) with its ONE button, "Post a job".
 
 type Props = {
   jobPostings: JobPosting[];
-  deleteAction: (
-    jobPostingId: number,
-    state: DeleteJobPostingState,
-    formData: FormData,
-  ) => Promise<DeleteJobPostingState>;
+  applicationCounts: Record<number, number>; // job posting id → number of applications
 };
 
-export default function JobPostingListView({ jobPostings, deleteAction }: Props) {
+export default function JobPostingListView({ jobPostings, applicationCounts }: Props) {
   if (jobPostings.length === 0) {
     return (
-      <EmptyState title="No job postings yet.">
-        Add one with the &quot;New job posting&quot; button, or with <code>POST /api/jobs</code>.
+      <EmptyState title="No job postings yet." action={{ href: "/jobs/new", label: "Post a job" }}>
+        Be the first to post one.
       </EmptyState>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-3">
-      {jobPostings.map((jobPosting) => (
-        <li
-          key={jobPosting.id}
-          className={`${cardClasses} flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between`}
-        >
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold break-words text-ink">
-              <Link href={`/jobs/${jobPosting.id}`} className="hover:text-primary hover:underline">
-                {jobPosting.title}
-              </Link>
-            </h2>
-            <p className="mt-0.5 text-sm text-muted">
-              <span className="font-medium text-ink">{jobPosting.company || "—"}</span>
-              {" · "}Posted {formatDate(jobPosting.createdAt)}
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-start gap-2">
-            <ButtonLink href={`/jobs/${jobPosting.id}`} size="sm">
-              View
-            </ButtonLink>
-            <ButtonLink href={`/jobs/${jobPosting.id}/edit`} variant="secondary" size="sm">
-              Edit
-            </ButtonLink>
-            <DeleteJobPostingButton
-              jobPostingId={jobPosting.id}
-              title={jobPosting.title}
-              action={deleteAction}
-            />
-          </div>
+    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {jobPostings.map((jobPosting, index) => (
+        <li key={jobPosting.id} className="min-w-0">
+          <JobCard jobPosting={jobPosting} applicationCount={applicationCounts[jobPosting.id] ?? 0} newest={index === 0} />
         </li>
       ))}
     </ul>

@@ -24,7 +24,7 @@ function text(formData: FormData, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-// Create (the "Add an announcement" form on /announcements).
+// Create (the "Post an announcement" form on /announcements/new).
 export async function createAnnouncementAction(
   _previousState: AnnouncementFormState,
   formData: FormData,
@@ -42,11 +42,10 @@ export async function createAnnouncementAction(
     return { error: result.error, values };
   }
 
-  // Success: refresh /announcements so the new announcement appears in the list
+  // Success: refresh /announcements so the new announcement appears in the list, then go to its
+  // page (the form is on its own page, /announcements/new, like /users/new and /jobs/new)
   revalidatePath("/announcements");
-  return {
-    message: `Announcement "${result.announcement.title}" created with id ${result.announcement.id}.`,
-  };
+  redirect(`/announcements/${result.announcement.id}`);
 }
 
 // Update (the "Edit announcement" form on /announcements/{id}/edit). announcementId is bound

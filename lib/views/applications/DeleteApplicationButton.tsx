@@ -28,7 +28,7 @@ export default function DeleteApplicationButton({ applicationId, applicantName, 
     <form
       action={formAction}
       onSubmit={(event) => {
-        if (!window.confirm(`Remove ${applicantName}'s application? This cannot be undone.`)) {
+        if (!window.confirm(`Remove ${applicantName}'s application? This can't be undone.`)) {
           event.preventDefault();
         }
       }}

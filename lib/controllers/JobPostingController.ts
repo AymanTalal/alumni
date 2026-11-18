@@ -7,6 +7,7 @@
 import * as JobPostingModel from "@/lib/models/jobPosting";
 import type { JobPosting, JobPostingData } from "@/lib/models/jobPosting";
 import { clientMessageFor, PAGE_ERROR } from "./databaseErrors";
+import { withPageMessages } from "./pageMessages";
 
 export type JobPostingResult = { jobPosting: JobPosting } | { error: string };
 export type JobPostingsResult = { jobPostings: JobPosting[] };
@@ -26,7 +27,7 @@ async function safely<T>(action: () => Promise<T>): Promise<T | { error: string 
 
 // Creates a job posting from the form's title and company. Returns { jobPosting } on success,
 // or { error } with the Model's message (e.g. "title" can't be empty), or if saving failed.
-export async function create(data: JobPostingData): Promise<JobPostingResult> {
+async function createForModel(data: JobPostingData): Promise<JobPostingResult> {
   return safely(async () => {
     const result = await JobPostingModel.createJobPosting(data);
     return "error" in result ? { error: result.message } : { jobPosting: result.jobPosting };
@@ -46,7 +47,7 @@ export async function getById(id: number | string): Promise<JobPostingResult> {
 
 // Changes title and company. Returns { jobPosting } on success, or { error } if the id is invalid,
 // the posting doesn't exist, a rule is broken (e.g. an empty title), or saving failed.
-export async function update(id: number | string, data: JobPostingData): Promise<JobPostingResult> {
+async function updateForModel(id: number | string, data: JobPostingData): Promise<JobPostingResult> {
   return safely(async () => {
     const result = await JobPostingModel.updateJobPosting(id, data);
     return "error" in result ? { error: result.message } : { jobPosting: result.jobPosting };
@@ -65,4 +66,9 @@ async function remove(id: number | string): Promise<DeleteResult> {
 
 // "delete" is a reserved word, so the function is named remove and exported as delete:
 // callers use JobPostingController.delete(id).
-export { remove as delete };
+// The page wording (BRAND.md voice) for the messages people see: the Models and the JSON API keep
+// their own exact messages (lib/controllers/pageMessages.ts).
+export const create = withPageMessages(createForModel);
+export const update = withPageMessages(updateForModel);
+const removeForPage = withPageMessages(remove);
+export { removeForPage as delete };

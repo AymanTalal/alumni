@@ -78,6 +78,23 @@ export async function getAllAnnouncements(): Promise<Announcement[]> {
   return rows.map(toAnnouncement);
 }
 
+// Read-only, for the homepage: the newest announcements (same order as getAllAnnouncements), at
+// most `limit` of them; a limit that isn't a whole number from 1 to 50 is treated as 2.
+export async function getLatestAnnouncements(limit: number): Promise<Announcement[]> {
+  const count = Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 2;
+  const rows = await query<AnnouncementRow>(
+    `SELECT ${COLUMNS} FROM announcements ORDER BY created_at DESC, id DESC LIMIT $1`,
+    [count],
+  );
+  return rows.map(toAnnouncement);
+}
+
+// Read-only, for the homepage: how many announcements there are.
+export async function countAnnouncements(): Promise<number> {
+  const [row] = await query<{ count: string }>("SELECT count(*) AS count FROM announcements");
+  return Number(row.count);
+}
+
 // Returns the announcement with this id, or undefined if there is none.
 export async function getAnnouncementById(id: number): Promise<Announcement | undefined> {
   if (!isValidId(id)) return undefined;

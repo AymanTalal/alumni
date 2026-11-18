@@ -209,6 +209,12 @@ export async function getAllApplications(): Promise<{ applications: Application[
   return { applications: rows.map(toApplication) };
 }
 
+// Read-only, for the homepage: how many applications there are.
+export async function countApplications(): Promise<number> {
+  const [row] = await query<{ count: string }>("SELECT count(*) AS count FROM applications");
+  return Number(row.count);
+}
+
 // Returns the applications to one job posting (its applicants), newest first, or
 // "job-posting-not-found" if the posting doesn't exist. A posting with no applications gives [].
 export async function getApplicationsByJobPostingId(

@@ -97,6 +97,51 @@ export async function getAllUsers(): Promise<User[]> {
   return rows.map(toUser);
 }
 
+// Read-only counts for the homepage. COUNT returns a bigint, which pg gives back as text.
+// How many users there are (the table has no graduate / student field, so this is "people").
+export async function countUsers(): Promise<number> {
+  const [row] = await query<{ count: string }>("SELECT count(*) AS count FROM users");
+  return Number(row.count);
+}
+
+// How many different departments the users have; an empty or space-only department doesn't count,
+// and surrounding spaces are ignored ("MIS" and " MIS " are one department; different spelling or
+// capitals are different departments).
+export async function countDepartments(): Promise<number> {
+  const [row] = await query<{ count: string }>(
+    "SELECT count(DISTINCT nullif(btrim(department), '')) AS count FROM users",
+  );
+  return Number(row.count);
+}
+
+// Read-only, for the homepage: the newest users (newest first), at most `limit` of them; a limit
+// that isn't a whole number from 1 to 50 is treated as 4.
+export async function getNewestUsers(limit: number): Promise<User[]> {
+  const count = Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 4;
+  const rows = await query<UserRow>(
+    `SELECT ${COLUMNS} FROM users ORDER BY created_at DESC, id DESC LIMIT $1`,
+    [count],
+  );
+  return rows.map(toUser);
+}
+
+// Read-only, for the homepage: how many users each department has, the largest first (then by
+// name), at most `limit` departments; a limit outside 1–50 is treated as 5. Same counting rule as
+// countDepartments: surrounding spaces are ignored and an empty department doesn't count.
+export async function countUsersByDepartment(limit: number): Promise<{ department: string; count: number }[]> {
+  const count = Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 5;
+  const rows = await query<{ department: string; count: string }>(
+    `SELECT btrim(department) AS department, count(*) AS count
+       FROM users
+      WHERE nullif(btrim(department), '') IS NOT NULL
+      GROUP BY btrim(department)
+      ORDER BY count(*) DESC, btrim(department)
+      LIMIT $1`,
+    [count],
+  );
+  return rows.map((row) => ({ department: row.department, count: Number(row.count) }));
+}
+
 // Returns the user with this id, or undefined if there is none.
 export async function getUserById(id: number): Promise<User | undefined> {
   if (!isValidId(id)) return undefined;

@@ -1,4 +1,4 @@
-# Alumni Tracking System: production image
+# IU Alumni: production image
 # Builds the Next.js app and runs it with `npm start` (next start) on port 3000.
 # The same image also runs the database migrations (`npm run migrate`) and the seed (`npm run seed`).
 # Node 24 LTS (ships npm 11, which matches package-lock.json); Next.js 16 needs Node >= 20.9.

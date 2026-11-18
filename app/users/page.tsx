@@ -1,15 +1,17 @@
 import { connection } from "next/server";
 import * as UserController from "@/lib/controllers/UserController";
-import UserCreateForm from "@/lib/views/users/UserCreateForm";
+import { ButtonLink } from "@/lib/views/ui/Button";
+import PageBand from "@/lib/views/ui/PageBand";
 import PageContainer from "@/lib/views/ui/PageContainer";
-import PageHeader from "@/lib/views/ui/PageHeader";
 import UserListView from "@/lib/views/users/UserListView";
-import { createUserAction, deleteUserAction } from "./actions";
 
 // Route: "/users"  (file: app/users/page.tsx)
-// GET /users  → Page → UserController.getAll → Model, rendered by UserListView
-// POST /users → Server Actions in ./actions.ts: the "Add a user" form → UserController.create,
-//               each row's Delete button → UserController.delete
+// GET /users → Page → UserController.getAll → Model, rendered by UserListView (a grid of person
+// cards, DESIGN.md §9). New users are added on /users/new; Edit and Delete are on each person's page.
+// One primary button per view: "Add a graduate" in the band — or, when the list is empty, the empty
+// state's button and nothing in the band.
+
+export const metadata = { title: "Graduates & students" };
 
 export default async function UsersPage() {
   // Render on every request, so newly created users show up
@@ -19,11 +21,24 @@ export default async function UsersPage() {
   const { users } = await UserController.getAll();
 
   return (
-    <PageContainer>
-      <PageHeader title="Users" description={`${users.length} user(s)`} />
-
-      <UserCreateForm action={createUserAction} />
-      <UserListView users={users} deleteAction={deleteUserAction} />
+    <PageContainer
+      band={
+        <PageBand
+          eyebrow="Directory"
+          title="Graduates & students"
+          description="Find a graduate, or add one to the directory."
+          count={users.length === 1 ? "1 person" : `${users.length} people`}
+          actions={
+            users.length > 0 ? (
+              <ButtonLink href="/users/new" variant="onAction">
+                Add a graduate
+              </ButtonLink>
+            ) : undefined
+          }
+        />
+      }
+    >
+      <UserListView users={users} />
     </PageContainer>
   );
 }

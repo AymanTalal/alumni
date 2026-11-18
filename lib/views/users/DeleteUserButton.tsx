@@ -25,7 +25,7 @@ export default function DeleteUserButton({ userId, userName, action, size = "sm"
     <form
       action={formAction}
       onSubmit={(event) => {
-        if (!window.confirm(`Delete user "${userName}"? This cannot be undone.`)) {
+        if (!window.confirm(`Delete user "${userName}"? This can't be undone.`)) {
           event.preventDefault();
         }
       }}

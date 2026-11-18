@@ -150,6 +150,23 @@ export async function getAllJobPostings(): Promise<{ jobPostings: JobPosting[] }
   return { jobPostings: rows.map(toJobPosting) };
 }
 
+// Read-only, for the homepage: the newest postings (same order as getAllJobPostings), at most
+// `limit` of them; a limit that isn't a whole number from 1 to 50 is treated as 3.
+export async function getLatestJobPostings(limit: number): Promise<JobPosting[]> {
+  const count = Number.isInteger(limit) && limit >= 1 && limit <= 50 ? limit : 3;
+  const rows = await query<JobPostingRow>(
+    `SELECT ${COLUMNS} FROM job_postings ORDER BY created_at DESC, id DESC LIMIT $1`,
+    [count],
+  );
+  return rows.map(toJobPosting);
+}
+
+// Read-only, for the homepage: how many job postings there are.
+export async function countJobPostings(): Promise<number> {
+  const [row] = await query<{ count: string }>("SELECT count(*) AS count FROM job_postings");
+  return Number(row.count);
+}
+
 // Returns the posting with this id, or "not-found".
 export async function getJobPostingById(id: number | string): Promise<JobPostingResult> {
   const postingId = parseId(id);

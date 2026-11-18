@@ -14,6 +14,7 @@ import type {
   ApplicationWithUser,
 } from "@/lib/models/application";
 import { clientMessageFor, PAGE_ERROR } from "./databaseErrors";
+import { withPageMessages } from "./pageMessages";
 
 export type ApplicationResult = { application: Application } | { error: string };
 export type DeleteResult = { id: number } | { error: string };
@@ -41,7 +42,7 @@ async function safely<T>(action: () => Promise<T>): Promise<T | { error: string 
 
 // User userId applies to job posting jobPostingId (status "pending"). Returns { application }, or
 // { error } if no user was chosen, the user or posting doesn't exist, the user already applied, or saving failed.
-export async function createForJob(
+async function createForJobForModel(
   jobPostingId: number | string,
   userId: string | undefined,
 ): Promise<ApplicationResult> {
@@ -77,7 +78,7 @@ export async function getAll(): Promise<{ applications: ApplicationWithDetails[]
 
 // Changes only the status. Returns { application } on success, or { error } if the id is invalid,
 // the application doesn't exist, the status isn't allowed, or saving failed.
-export async function updateStatus(
+async function updateStatusForModel(
   id: number | string,
   status: string | undefined,
 ): Promise<ApplicationResult> {
@@ -99,4 +100,9 @@ async function remove(id: number | string): Promise<DeleteResult> {
 
 // "delete" is a reserved word, so the function is named remove and exported as delete:
 // callers use ApplicationController.delete(id).
-export { remove as delete };
+// The page wording (BRAND.md voice) for the messages people see: the Models and the JSON API keep
+// their own exact messages (lib/controllers/pageMessages.ts).
+export const createForJob = withPageMessages(createForJobForModel);
+export const updateStatus = withPageMessages(updateStatusForModel);
+const removeForPage = withPageMessages(remove);
+export { removeForPage as delete };

@@ -10,6 +10,7 @@ import type {
   PartialAnnouncementData,
 } from "@/lib/models/announcement";
 import { clientMessageFor, PAGE_ERROR } from "./databaseErrors";
+import { withPageMessages } from "./pageMessages";
 
 export type AnnouncementResult = { announcement: Announcement } | { error: string };
 export type AnnouncementsResult = { announcements: Announcement[] };
@@ -62,7 +63,7 @@ async function safely<T>(action: () => Promise<T>): Promise<T | { error: string 
 
 // Creates an announcement. Returns { announcement } on success,
 // or { error } if "title" or "content" is missing or blank, or saving failed.
-export async function create(data: Partial<AnnouncementData>): Promise<AnnouncementResult> {
+async function createForModel(data: Partial<AnnouncementData>): Promise<AnnouncementResult> {
   const error = validateAnnouncement(data, true);
   if (error) return { error };
 
@@ -87,7 +88,7 @@ export async function getById(id: number | string): Promise<AnnouncementResult> 
 
 // Changes only the given fields. Returns { announcement } on success, or { error } if the id
 // is invalid, the announcement doesn't exist, "title" / "content" is given but blank, or saving failed.
-export async function update(
+async function updateForModel(
   id: number | string,
   partialData: PartialAnnouncementData,
 ): Promise<AnnouncementResult> {
@@ -118,4 +119,9 @@ async function remove(id: number | string): Promise<DeleteResult> {
 
 // "delete" is a reserved word, so the function is named remove and exported as delete:
 // callers use AnnouncementController.delete(id).
-export { remove as delete };
+// The page wording (BRAND.md voice) for the messages people see: the Models and the JSON API keep
+// their own exact messages (lib/controllers/pageMessages.ts).
+export const create = withPageMessages(createForModel);
+export const update = withPageMessages(updateForModel);
+const removeForPage = withPageMessages(remove);
+export { removeForPage as delete };
